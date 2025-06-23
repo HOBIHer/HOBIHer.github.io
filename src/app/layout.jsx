@@ -4,8 +4,8 @@ import '@/styles/tailwind.css'
 
 export const metadata = {
   title: {
-    template: '%s - Jiaqi\'s Studio',
-    default: 'Jiaqi\'s Studio',
+    template: '%s - Snoopy\'s Studio',
+    default: 'Snoopy\'s Studio',
   },
 }
 
