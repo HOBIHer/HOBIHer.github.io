@@ -8,6 +8,7 @@ function forceHand(combat: ReturnType<typeof startCombat>['combat'], definitionI
     hand: definitionIds.map((definitionId, index) => ({
       definitionId,
       instanceId: `forced-${definitionId}-${index}`,
+      upgraded: false,
     })),
     drawPile: [],
     discardPile: [],

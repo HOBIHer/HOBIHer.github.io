@@ -1,6 +1,7 @@
 import type { CardDefinition } from '../../types';
+import { v130Cards } from './v130Batch';
 
-export const warriorCards: CardDefinition[] = [
+const baseWarriorCards: CardDefinition[] = [
   {
     id: 'short-blade-advance',
     name: '短刃推进',
@@ -505,8 +506,12 @@ export const warriorCards: CardDefinition[] = [
   },
 ];
 
+export const warriorCards: CardDefinition[] = [...baseWarriorCards, ...v130Cards];
+
 export const warriorCardById: Record<string, CardDefinition> = Object.fromEntries(
   warriorCards.map((card) => [card.id, card]),
 );
 
-export const rewardWarriorCards = warriorCards.filter((card) => card.rarity !== 'starter');
+export const rewardWarriorCards = warriorCards.filter(
+  (card) => card.rarity !== 'starter' && card.rarity !== 'basic',
+);

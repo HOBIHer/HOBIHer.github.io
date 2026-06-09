@@ -1,6 +1,6 @@
 import type { GameMode, StatusId } from '../../game/types';
 
-const normalDescriptions: Record<StatusId, string> = {
+const normalDescriptions: Partial<Record<StatusId, string>> = {
   vulnerable: '受到攻击伤害提高，层数会在回合结束时衰减。',
   weak: '造成的攻击伤害降低，层数会在回合结束时衰减。',
   frail: '获得的格挡降低，层数会在回合结束时衰减。',
@@ -13,7 +13,7 @@ const normalDescriptions: Record<StatusId, string> = {
   barrierLock: '下个回合开始时保留当前格挡，然后减少一层。',
 };
 
-const stealthDescriptions: Record<StatusId, string> = {
+const stealthDescriptions: Partial<Record<StatusId, string>> = {
   vulnerable: '当前目标承压更高，推进效果会被放大。',
   weak: '当前目标输出效率下降，会在周期结束时衰减。',
   frail: '缓冲生成效率下降，会在周期结束时衰减。',
@@ -27,5 +27,6 @@ const stealthDescriptions: Record<StatusId, string> = {
 };
 
 export function getStatusDescription(status: StatusId, mode: GameMode = 'normal'): string {
-  return mode === 'stealth' ? stealthDescriptions[status] : normalDescriptions[status];
+  const description = mode === 'stealth' ? stealthDescriptions[status] : normalDescriptions[status];
+  return description ?? '特殊规则状态。';
 }

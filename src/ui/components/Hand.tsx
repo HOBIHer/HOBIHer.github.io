@@ -1,4 +1,4 @@
-import { warriorCardById } from '../../game/data/cards/warrior';
+import { getEffectiveCardDefinition } from '../../game/engine/cardUpgrades';
 import type { CardInstance, GameMode } from '../../game/types';
 import { getTerminology } from '../terminology/terminology';
 import { CardView } from './CardView';
@@ -21,13 +21,13 @@ export function Hand({ cards, energy, mode = 'normal', targetEnemyId, onPlay }: 
   return (
     <div className="hand" aria-label={terminology.card}>
       {cards.map((cardInstance) => {
-        const card = warriorCardById[cardInstance.definitionId];
+        const card = getEffectiveCardDefinition(cardInstance);
         return (
           <CardView
             key={cardInstance.instanceId}
             card={card}
             mode={mode}
-            disabled={card.cost > energy}
+            disabled={card.cost !== 'X' && card.cost > energy}
             onClick={() => onPlay(cardInstance.instanceId, targetEnemyId)}
           />
         );

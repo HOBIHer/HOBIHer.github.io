@@ -495,3 +495,172 @@ npm run dev -- --host 127.0.0.1 --port 5174
 ## Next Step
 
 Recommended next milestone: add broader run variety with event and shop placeholders, then expand map-generation constraints and encounter difficulty bands with original local content.
+
+## v1.2.0: Multi-Start Tree Map + Card Upgrades + Potion System
+
+Status: Completed.
+
+## Completed
+
+- Replaced the previous first-act route with a deterministic upward tree:
+  - 3 available bottom start nodes
+  - combat and elite branches across middle layers
+  - 2 rest nodes
+  - 1 top Boss endpoint
+- Added map metadata for:
+  - `layer`
+  - `parentNodeIds`
+  - `nextNodeIds`
+  - `x`
+  - `y`
+- Kept map progression deterministic and local:
+  - locked nodes cannot be skipped
+  - entering one available node locks same-layer alternatives
+  - completing a node unlocks only declared child nodes
+- Converted run deck storage to persistent card instances with `definitionId` and upgrade state.
+- Added generated card upgrade support for every current Iron Oath card.
+- Updated combat card lookup so upgraded cards use upgraded costs, descriptions, and effects.
+- Expanded rest nodes with a second action:
+  - heal for 30% max HP
+  - upgrade one unupgraded deck card
+- Added rest upgrade result feedback before returning to the map.
+- Added a small original potion pool:
+  - `small-healing-fluid`
+  - `strength-draught`
+  - `guard-draught`
+  - `draw-draught`
+  - `risk-mark-bottle`
+- Added 3 potion slots to runs.
+- Added deterministic potion rewards for combat and elite rewards.
+- Added combat potion use for heal, block, draw, self-status, and enemy-status effects.
+- Added potion UI in combat and reward screens, including full-slot handling.
+- Updated local save schema to version 3 with v1/v2 fallback normalization for deck instances, potions, tree map fields, combat snapshots, and rest upgrade results.
+- Updated low-profile UI labels for the new map, rest upgrade, reward, pile empty, and potion flows.
+- Updated `docs/MECHANICS.md`, `docs/CONTENT_CATALOG.md`, `docs/MILESTONES.md`, `PROGRESS.md`, and `CHANGELOG.md`.
+
+## Main Files Added or Modified
+
+- `src/game/types.ts`
+- `src/game/data/potions/potions.ts`
+- `src/game/engine/cardUpgrades.ts`
+- `src/game/engine/potions.ts`
+- `src/game/engine/map.ts`
+- `src/game/engine/run.ts`
+- `src/game/engine/rewards.ts`
+- `src/game/engine/combat.ts`
+- `src/game/engine/deck.ts`
+- `src/game/engine/effects.ts`
+- `src/game/store/useGameStore.ts`
+- `src/adapters/storageAdapter.ts`
+- `src/ui/components/Hand.tsx`
+- `src/ui/components/PileInfo.tsx`
+- `src/ui/components/PotionBar.tsx`
+- `src/ui/screens/CombatScreen.tsx`
+- `src/ui/screens/MapScreen.tsx`
+- `src/ui/screens/RestScreen.tsx`
+- `src/ui/screens/RewardScreen.tsx`
+- `src/index.css`
+- `src/tests/mapEngine.test.ts`
+- `src/tests/runMilestone5.test.ts`
+- `src/tests/storeFlow.test.ts`
+- `src/tests/v120MapUpgradePotion.test.ts`
+- `docs/MECHANICS.md`
+- `docs/CONTENT_CATALOG.md`
+- `docs/MILESTONES.md`
+- `PROGRESS.md`
+- `CHANGELOG.md`
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1 --port 5175
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-09 with 17 test files and 91 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-09 with TypeScript checking and Vite production build.
+
+`npm run dev -- --host 127.0.0.1 --port 5175` was used for the final local smoke check when prior Vite ports were occupied.
+
+## Known Issues
+
+- The tree route is still a fixed first-act shape, not a full procedural map generator.
+- Rest nodes support only heal or upgrade; card removal, transformation, shops, and events are still future work.
+- Potion balance and upgrade values are first-pass local tuning and need playtesting.
+- Bosses remain single-phase first-version encounters.
+- Save schema v3 reads old v1/v2 payloads, but old clients cannot read v3 saves.
+
+## Next Step
+
+Recommended next milestone: expand run variety with additional original event/shop placeholders, route-generation constraints, potion tuning, and encounter difficulty bands.
+
+## v1.3.0: New Card Batch Update
+
+Status: Completed.
+
+## Completed
+
+- Parsed `docs/content_requests/CARD_BATCH_1.3.0.md` and implemented 83 local, single-player-compatible cards with original ids, names, low-profile names, descriptions, costs, rarity, type, target, effects, and explicit upgrade definitions.
+- Added `basic` and `ancient` card rarities:
+  - `basic` cards do not enter rewards.
+  - `ancient` cards are reward-eligible at low weight.
+- Added typed X-cost support and X-scaling effects.
+- Added combat-local card modifiers for temporary cost overrides, exhaust-on-play, innate upgrades, and combat damage growth.
+- Added data-driven descriptors for:
+  - copying cards
+  - upgrading hand cards
+  - blocking later draw or energy gain
+  - exhausting hand cards by count/random/type
+  - playing draw-pile top cards
+  - moving discard cards to draw top
+  - draw-until-card-type searches
+  - damage scaling from block, exhaust pile size, vulnerable stacks, cards exhausted this turn, basic attack count, attacks played this turn, and HP-loss events
+- Added power/status hooks for:
+  - block retention
+  - turn-start HP/block/strength/energy
+  - exhaust draw/block triggers
+  - vulnerable damage/draw triggers
+  - HP-loss damage/strength triggers
+  - block-gain damage
+  - third-attack copying
+  - next-attack replay and free cost
+  - end-turn attack auto-play
+  - exhaust-pile auto-play
+- Updated power card resolution so power cards leave the combat cycle when played.
+- Updated card display and hand playability for `X` costs.
+- Updated local save normalization for new optional combat/card-instance fields.
+- Added `src/tests/v130CardBatch.test.ts` for v1.3.0 content validation, reward eligibility, upgrades, low-profile rendering, all-card play smoke coverage, and representative new mechanisms.
+- Updated `docs/MECHANICS.md`, `docs/CONTENT_CATALOG.md`, `docs/MILESTONES.md`, `PROGRESS.md`, and `CHANGELOG.md`.
+
+## Blocked Cards
+
+- Row 27: requires "another player" block transfer, which conflicts with the single-player product spec.
+- Row 60: references `Giant Rock` / `Giant Rock+` without defining token cost, type, or effect.
+- Row 72: references `Plating` without defining its rules.
+- Row 75: requires ally damage reduction, which conflicts with the current single-player combat model.
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-09 with 18 test files and 103 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-09 with TypeScript checking and Vite production build.
+
+## Product-Spec Concerns
+
+- No networking, account, telemetry, ads, cloud sync, enemies, relics, map nodes, or events were added.
+- Four rows were blocked instead of implemented because they conflict with the current single-player model or omit required mechanic definitions.

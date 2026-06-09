@@ -64,6 +64,6 @@ describe('game store flow', () => {
 
     expect(nextState.screen).toBe('map');
     expect(nextState.run?.completedNodeIds).toContain(firstNode.id);
-    expect(nextState.run?.deck).toContain(reward.cardId);
+    expect(nextState.run?.deck.some((card) => card.definitionId === reward.cardId)).toBe(true);
   });
 });

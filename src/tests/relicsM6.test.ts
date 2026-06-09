@@ -45,9 +45,9 @@ describe('milestone 6 relic triggers', () => {
       hand: [],
       drawPile: [],
       discardPile: [
-        { definitionId: 'hinge-jab', instanceId: 'discard-a' },
-        { definitionId: 'shield-press', instanceId: 'discard-b' },
-        { definitionId: 'settle-breath', instanceId: 'discard-c' },
+        { definitionId: 'hinge-jab', instanceId: 'discard-a', upgraded: false },
+        { definitionId: 'shield-press', instanceId: 'discard-b', upgraded: false },
+        { definitionId: 'settle-breath', instanceId: 'discard-c', upgraded: false },
       ],
     };
 
@@ -96,7 +96,7 @@ describe('milestone 6 relic triggers', () => {
     combat = forceHand(combat, ['guarded-stance']);
     combat = {
       ...combat,
-      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'skill-draw' }],
+      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'skill-draw', upgraded: false }],
     };
 
     combat = playCard(combat, combat.hand[0].instanceId, combat.enemies[0].instanceId);
@@ -111,6 +111,7 @@ function forceHand(combat: CombatState, definitionIds: string[]): CombatState {
     hand: definitionIds.map((definitionId, index) => ({
       definitionId,
       instanceId: `forced-${definitionId}-${index}`,
+      upgraded: false,
     })),
     drawPile: [],
     discardPile: [],

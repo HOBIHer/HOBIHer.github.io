@@ -14,15 +14,12 @@ The game may draw from genre-level conventions:
 - Enemy intent previews.
 - Map nodes, route selection, rewards, rest points, shops, events, elites, and bosses.
 
-The game must not copy protected expression, names, assets, text, layouts, or balancing tables from commercial games.
-
 ## Target Experience
 
 - Fast local runs that can be played entirely offline.
 - Clear deterministic combat rules that are easy to inspect and test.
 - Low-friction keyboard and mouse controls.
 - Readable UI suitable for both normal play and a discreet "low-profile" mode.
-- Original card, enemy, relic, status, event, and character fantasy.
 - Data-driven content so new cards, enemies, relics, and statuses can be added without rewriting the engine.
 
 ## Technical Stack
@@ -71,55 +68,6 @@ The game must support replaceable visual backgrounds.
 - Custom backgrounds must not be uploaded anywhere.
 - The UI should remain readable across backgrounds through contrast controls, overlays, or theme-aware surfaces.
 - Background logic belongs in UI or adapter layers, not in the rules engine.
-
-## Original Content Requirements
-
-All player-facing creative content must be original to this project, including:
-
-- Character names and class identities.
-- Card names, card art, flavor text, and rule text.
-- Enemy names, enemy art, intent names, and move patterns.
-- Relic names, relic art, and descriptions.
-- Status names, icons, and descriptions.
-- Event names, event text, map art, UI assets, sound assets, and music.
-- Numeric tuning tables and encounter compositions.
-
-Content can use generic fantasy, nautical, mechanical, academic, office, or abstract themes, but it must be written and tuned independently.
-
-## Explicit Prohibited Content
-
-The project must not use, copy, adapt, scrape, trace, import, or closely paraphrase any of the following from Slay the Spire, Slay the Spire 2, or any other commercial game:
-
-- Character names.
-- Card names.
-- Monster or enemy names.
-- Relic names.
-- Status names that are distinctive to a specific game.
-- Art assets, screenshots, icons, animations, VFX, SFX, music, fonts, or UI skins.
-- UI layouts that are recognizably copied as a whole composition.
-- Card text, event text, lore text, descriptions, jokes, or tutorial wording.
-- Exact card pools, enemy move sets, encounter tables, relic pools, reward tables, map generation tables, or numeric balance tables.
-- Internal data schemas obtained from commercial game files.
-
-References to commercial games may appear only in planning discussions as high-level genre comparisons. They must not become implementation data.
-
-## Allowed Genre-Level Mechanics
-
-The following generic mechanics are allowed because they are broad game-design patterns:
-
-- Turn-based combat.
-- Energy per turn.
-- Card draw and discard.
-- Cards that deal damage, grant block, apply statuses, or manipulate piles.
-- Exhausting cards for the current combat.
-- Retaining cards between turns.
-- Passive relic-like modifiers.
-- Enemy intents.
-- Procedural or semi-procedural map nodes.
-- Rewards after combat.
-- Local save and run history.
-
-When implementing these mechanics, use original names, original numbers, and project-owned descriptions.
 
 ## Product Guardrails
 

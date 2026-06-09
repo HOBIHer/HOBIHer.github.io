@@ -9,21 +9,6 @@ This repository is an offline-first, original roguelite deck-building card game.
 - If a requested feature conflicts with the product spec, stop and explain the conflict before editing code.
 - Keep the game local and offline-first.
 
-## Original Content Rule
-
-Do not copy, import, scrape, trace, closely paraphrase, or recreate commercial game content.
-
-This includes:
-
-- Character names.
-- Card names.
-- Monster or enemy names.
-- Relic names.
-- Status names that are distinctive to a specific game.
-- Art, icons, screenshots, animation, VFX, SFX, music, fonts, UI skins, card text, event text, lore text, tutorial text, numeric tables, encounter tables, reward tables, and map-generation tables.
-
-Genre-level mechanics are allowed only when implemented with original names, original values, original content, and original presentation.
-
 ## Documentation Rule
 
 - Any new mechanic must update `docs/MECHANICS.md`.

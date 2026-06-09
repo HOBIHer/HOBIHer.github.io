@@ -26,6 +26,7 @@ function forceHand(combat: CombatState, definitionIds: string[]): CombatState {
     hand: definitionIds.map((definitionId, index) => ({
       definitionId,
       instanceId: `forced-${definitionId}-${index}`,
+      upgraded: false,
     })),
     drawPile: [],
     discardPile: [],

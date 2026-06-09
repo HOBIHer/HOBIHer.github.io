@@ -24,7 +24,7 @@ export function CardView({ card, mode = 'normal', disabled = false, onClick }: C
     <button className={`card-button ${card.type}`} disabled={disabled} onClick={onClick}>
       <span className="card-header">
         <span className="card-name">{displayName}</span>
-        <span className="card-cost">{card.cost}</span>
+        <span className="card-cost">{card.cost === 'X' ? 'X' : card.cost}</span>
       </span>
       <span className="card-type">{typeLabel}</span>
       <p className="card-description">{description}</p>

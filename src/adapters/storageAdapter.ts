@@ -1,9 +1,11 @@
 import type {
   CombatStartSnapshot,
   CombatState,
+  CardInstance,
   CurrentRunSave,
   GameScreen,
   MapNode,
+  PotionInstance,
   RelicId,
   RestResult,
   RewardOption,
@@ -13,14 +15,14 @@ import type {
 } from '../game/types';
 import { clampBackgroundOpacity } from './backgroundAdapter';
 
-export const SAVE_DATA_VERSION = 2;
-export const CURRENT_RUN_STORAGE_KEY = 'slaythefish2.currentRun.v2';
-export const SETTINGS_STORAGE_KEY = 'slaythefish2.settings.v2';
-export const RUN_HISTORY_STORAGE_KEY = 'slaythefish2.runHistory.v2';
+export const SAVE_DATA_VERSION = 3;
+export const CURRENT_RUN_STORAGE_KEY = 'slaythefish2.currentRun.v3';
+export const SETTINGS_STORAGE_KEY = 'slaythefish2.settings.v3';
+export const RUN_HISTORY_STORAGE_KEY = 'slaythefish2.runHistory.v3';
 
-const LEGACY_CURRENT_RUN_STORAGE_KEYS = ['slaythefish2.currentRun.v1'];
-const LEGACY_SETTINGS_STORAGE_KEYS = ['slaythefish2.settings.v1'];
-const LEGACY_RUN_HISTORY_STORAGE_KEYS = ['slaythefish2.runHistory.v1'];
+const LEGACY_CURRENT_RUN_STORAGE_KEYS = ['slaythefish2.currentRun.v2', 'slaythefish2.currentRun.v1'];
+const LEGACY_SETTINGS_STORAGE_KEYS = ['slaythefish2.settings.v2', 'slaythefish2.settings.v1'];
+const LEGACY_RUN_HISTORY_STORAGE_KEYS = ['slaythefish2.runHistory.v2', 'slaythefish2.runHistory.v1'];
 
 export interface StorageLike {
   getItem: (key: string) => string | null;
@@ -279,8 +281,10 @@ function normalizeRunState(
       maxHp: Number.isFinite(Number(character.maxHp)) ? Number(character.maxHp) : 72,
       gold: Number.isFinite(Number(character.gold)) ? Number(character.gold) : 0,
     },
-    deck: Array.isArray(record.deck) ? record.deck.filter(isString) : [],
+    deck: normalizeDeck(record.deck, id),
     relics: Array.isArray(record.relics) ? (record.relics.filter(isString) as RelicId[]) : [],
+    potions: normalizePotions(record.potions),
+    potionSlots: Number.isFinite(Number(record.potionSlots)) ? Number(record.potionSlots) : 3,
     combatsWon: Number.isFinite(Number(record.combatsWon)) ? Number(record.combatsWon) : 0,
     map: normalizeMapNodes(record.map),
     currentNodeId: typeof record.currentNodeId === 'string' ? record.currentNodeId : undefined,
@@ -310,22 +314,41 @@ function normalizeMapNodes(value: unknown): MapNode[] {
   const statuses = new Set(['locked', 'available', 'completed', 'current']);
   const types = new Set(['combat', 'elite', 'rest', 'boss']);
 
-  return value.filter(isRecord).map((node, index) => ({
-    id: typeof node.id === 'string' ? node.id : `legacy-node-${index}`,
-    index: Number.isFinite(Number(node.index)) ? Number(node.index) : index,
-    floor: Number.isFinite(Number(node.floor))
-      ? Number(node.floor)
-      : Number.isFinite(Number(node.index))
-        ? Number(node.index) + 1
-        : index + 1,
-    type: types.has(String(node.type)) ? (node.type as MapNode['type']) : 'combat',
-    label: typeof node.label === 'string' ? node.label : '普通战斗',
-    lowProfileLabel:
-      typeof node.lowProfileLabel === 'string' ? node.lowProfileLabel : '常规会话',
-    status: statuses.has(String(node.status)) ? (node.status as MapNode['status']) : 'locked',
-    nextNodeIds: Array.isArray(node.nextNodeIds) ? node.nextNodeIds.filter(isString) : [],
-    enemyGroupId: typeof node.enemyGroupId === 'string' ? node.enemyGroupId : undefined,
-    bossId: typeof node.bossId === 'string' ? node.bossId : undefined,
+  const normalized = value.filter(isRecord).map((node, index) => {
+    const layer = Number.isFinite(Number(node.layer))
+      ? Number(node.layer)
+      : Number.isFinite(Number(node.floor))
+        ? Number(node.floor) - 1
+        : Number.isFinite(Number(node.index))
+          ? Number(node.index)
+          : index;
+    const rawStatus = statuses.has(String(node.status)) ? (node.status as MapNode['status']) : 'locked';
+
+    return {
+      id: typeof node.id === 'string' ? node.id : `legacy-node-${index}`,
+      index: Number.isFinite(Number(node.index)) ? Number(node.index) : index,
+      floor: Number.isFinite(Number(node.floor)) ? Number(node.floor) : layer + 1,
+      layer,
+      x: Number.isFinite(Number(node.x)) ? Number(node.x) : index,
+      y: Number.isFinite(Number(node.y)) ? Number(node.y) : layer,
+      type: types.has(String(node.type)) ? (node.type as MapNode['type']) : 'combat',
+      label: typeof node.label === 'string' ? node.label : '普通战斗',
+      lowProfileLabel:
+        typeof node.lowProfileLabel === 'string' ? node.lowProfileLabel : '常规会话',
+      status: rawStatus === 'current' ? 'available' : rawStatus,
+      parentNodeIds: Array.isArray(node.parentNodeIds) ? node.parentNodeIds.filter(isString) : [],
+      nextNodeIds: Array.isArray(node.nextNodeIds) ? node.nextNodeIds.filter(isString) : [],
+      enemyGroupId: typeof node.enemyGroupId === 'string' ? node.enemyGroupId : undefined,
+      bossId: typeof node.bossId === 'string' ? node.bossId : undefined,
+    };
+  });
+
+  return normalized.map((node) => ({
+    ...node,
+    parentNodeIds:
+      node.parentNodeIds.length > 0
+        ? node.parentNodeIds
+        : normalized.filter((candidate) => candidate.nextNodeIds.includes(node.id)).map((candidate) => candidate.id),
   }));
 }
 
@@ -337,12 +360,31 @@ function normalizeCombatState(value: unknown): CombatState | undefined {
   const combat = value as unknown as CombatState;
   return {
     ...combat,
+    turnStats: {
+      cardsPlayed: Number(combat.turnStats?.cardsPlayed ?? 0),
+      attacksPlayed: Number(combat.turnStats?.attacksPlayed ?? 0),
+      skillsPlayed: Number(combat.turnStats?.skillsPlayed ?? 0),
+      powersPlayed: Number(combat.turnStats?.powersPlayed ?? 0),
+      cardBlockGains: Number(combat.turnStats?.cardBlockGains ?? 0),
+      cardsExhausted: Number(combat.turnStats?.cardsExhausted ?? 0),
+      lostHpThisTurn: Boolean(combat.turnStats?.lostHpThisTurn),
+      killedEnemyIds: Array.isArray(combat.turnStats?.killedEnemyIds)
+        ? combat.turnStats.killedEnemyIds.filter(isString)
+        : [],
+    },
+    combatStats: {
+      hpLossEvents: Number(combat.combatStats?.hpLossEvents ?? 0),
+    },
     enemies: Array.isArray(combat.enemies)
       ? combat.enemies.map((enemy) => ({
           ...enemy,
           defeated: Boolean(enemy.defeated) || Number(enemy.hp) <= 0,
         }))
       : [],
+    drawPile: normalizeDeck(combat.drawPile, combat.id),
+    hand: normalizeDeck(combat.hand, combat.id),
+    discardPile: normalizeDeck(combat.discardPile, combat.id),
+    exhaustPile: normalizeDeck(combat.exhaustPile, combat.id),
     log: Array.isArray(combat.log) ? combat.log.filter(isString) : [],
   };
 }
@@ -366,6 +408,7 @@ function normalizeCombatStartSnapshot(value: unknown): CombatStartSnapshot | und
       ? Number(value.characterHp)
       : combat.player.hp,
     map: normalizeMapNodes(value.map),
+    potions: normalizePotions(value.potions),
     combat,
   };
 }
@@ -377,10 +420,76 @@ function normalizeRestResult(value: unknown): RestResult | undefined {
 
   return {
     nodeId: typeof value.nodeId === 'string' ? value.nodeId : '',
+    action: value.action === 'upgrade' ? 'upgrade' : 'rest',
     beforeHp: Number.isFinite(Number(value.beforeHp)) ? Number(value.beforeHp) : 0,
     afterHp: Number.isFinite(Number(value.afterHp)) ? Number(value.afterHp) : 0,
     healed: Number.isFinite(Number(value.healed)) ? Number(value.healed) : 0,
+    upgradedCardInstanceId:
+      typeof value.upgradedCardInstanceId === 'string' ? value.upgradedCardInstanceId : undefined,
+    upgradedCardDefinitionId:
+      typeof value.upgradedCardDefinitionId === 'string' ? value.upgradedCardDefinitionId : undefined,
+    upgradedCardName: typeof value.upgradedCardName === 'string' ? value.upgradedCardName : undefined,
+    upgradedLowProfileName:
+      typeof value.upgradedLowProfileName === 'string' ? value.upgradedLowProfileName : undefined,
   };
+}
+
+function normalizeDeck(value: unknown, prefix = 'deck'): CardInstance[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((card, index): CardInstance | undefined => {
+      if (typeof card === 'string') {
+        return {
+          definitionId: card,
+          instanceId: `${prefix}-${card}-${index}`,
+          upgraded: false,
+        };
+      }
+
+      if (!isRecord(card) || typeof card.definitionId !== 'string') {
+        return undefined;
+      }
+
+      return {
+        definitionId: card.definitionId,
+        instanceId: typeof card.instanceId === 'string' ? card.instanceId : `${prefix}-${card.definitionId}-${index}`,
+        upgraded: Boolean(card.upgraded),
+        costOverride: Number.isFinite(Number(card.costOverride)) ? Number(card.costOverride) : undefined,
+        exhaustOnPlay: typeof card.exhaustOnPlay === 'boolean' ? card.exhaustOnPlay : undefined,
+        damageBonus: Number.isFinite(Number(card.damageBonus)) ? Number(card.damageBonus) : undefined,
+      };
+    })
+    .filter((card): card is CardInstance => Boolean(card));
+}
+
+function normalizePotions(value: unknown): PotionInstance[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((potion, index): PotionInstance | undefined => {
+      if (typeof potion === 'string') {
+        return {
+          definitionId: potion,
+          instanceId: `potion-${potion}-${index}`,
+        };
+      }
+
+      if (!isRecord(potion) || typeof potion.definitionId !== 'string') {
+        return undefined;
+      }
+
+      return {
+        definitionId: potion.definitionId,
+        instanceId:
+          typeof potion.instanceId === 'string' ? potion.instanceId : `potion-${potion.definitionId}-${index}`,
+      };
+    })
+    .filter((potion): potion is PotionInstance => Boolean(potion));
 }
 
 function normalizeRunSummary(value: unknown): RunSummary | undefined {

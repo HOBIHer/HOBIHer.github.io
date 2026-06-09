@@ -54,7 +54,7 @@ describe('milestone 6 card effects', () => {
     combat = forceHand(combat, ['price-of-iron']);
     combat = {
       ...combat,
-      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'draw-hinge-jab' }],
+      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'draw-hinge-jab', upgraded: false }],
       energy: 1,
     };
 
@@ -95,7 +95,7 @@ describe('milestone 6 card effects', () => {
         block: 4,
         hp: 30,
       },
-      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'conditional-draw' }],
+      drawPile: [{ definitionId: 'hinge-jab', instanceId: 'conditional-draw', upgraded: false }],
       enemies: [
         {
           ...combat.enemies[0],
@@ -137,6 +137,7 @@ function forceHand(combat: CombatState, definitionIds: string[]): CombatState {
     hand: definitionIds.map((definitionId, index) => ({
       definitionId,
       instanceId: `forced-${definitionId}-${index}`,
+      upgraded: false,
     })),
     drawPile: [],
     discardPile: [],

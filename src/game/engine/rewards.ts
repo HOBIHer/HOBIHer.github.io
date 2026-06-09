@@ -1,30 +1,33 @@
 import { rewardWarriorCards } from '../data/cards/warrior';
 import { relics } from '../data/relics/relics';
 import { normalizeSeed, randomInt } from '../rng';
+import { pickPotion } from './potions';
 import type {
   CardDefinition,
-  CardRarity,
   MapNode,
   RelicDefinition,
   RelicId,
   RelicRarity,
   RewardBundle,
+  RewardCardRarity,
   RewardOption,
   RunState,
 } from '../types';
 
 type RewardSource = 'combat' | 'elite';
 
-export const CARD_REWARD_RARITY_WEIGHTS: Record<RewardSource, Record<Exclude<CardRarity, 'starter'>, number>> = {
+export const CARD_REWARD_RARITY_WEIGHTS: Record<RewardSource, Record<RewardCardRarity, number>> = {
   combat: {
     common: 70,
     uncommon: 25,
     rare: 5,
+    ancient: 1,
   },
   elite: {
     common: 55,
     uncommon: 35,
     rare: 10,
+    ancient: 2,
   },
 };
 
@@ -61,6 +64,7 @@ export function generateNodeReward(run: RunState, node: MapNode): RewardBundle {
       cardChoices: [],
       gold: 0,
       relicChoices: [],
+      potionId: undefined,
       claimed: false,
     };
   }
@@ -77,6 +81,12 @@ export function generateNodeReward(run: RunState, node: MapNode): RewardBundle {
     node.type === 'elite'
       ? pickWeightedRelics(rngSeed, run.relics, 1)
       : { relics: [] as RelicDefinition[], rngSeed };
+  rngSeed = relicResult.rngSeed;
+
+  const potionChance = node.type === 'elite' ? 55 : 35;
+  const potionRoll = randomInt(rngSeed, 100);
+  rngSeed = potionRoll.seed;
+  const potionId = potionRoll.value < potionChance ? pickPotion(rngSeed) : undefined;
 
   return {
     id: `reward-${node.id}`,
@@ -84,6 +94,7 @@ export function generateNodeReward(run: RunState, node: MapNode): RewardBundle {
     cardChoices: cardResult.cards.map((card) => card.id),
     gold: goldRange.min + goldRandom.value,
     relicChoices: relicResult.relics.map((relic) => relic.id),
+    potionId,
     claimed: false,
   };
 }
@@ -147,10 +158,10 @@ export function pickWeightedRelics(
   return { relics: pickedRelics, rngSeed };
 }
 
-function getAvailableCardRarities(cards: CardDefinition[]): Exclude<CardRarity, 'starter'>[] {
-  return ['common', 'uncommon', 'rare'].filter((rarity) =>
+function getAvailableCardRarities(cards: CardDefinition[]): RewardCardRarity[] {
+  return ['common', 'uncommon', 'rare', 'ancient'].filter((rarity) =>
     cards.some((card) => card.rarity === rarity),
-  ) as Exclude<CardRarity, 'starter'>[];
+  ) as RewardCardRarity[];
 }
 
 function getAvailableRelicRarities(availableRelics: RelicDefinition[]): RelicRarity[] {

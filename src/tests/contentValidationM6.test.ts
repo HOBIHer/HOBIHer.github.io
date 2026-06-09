@@ -20,21 +20,21 @@ describe('milestone 6 content validation', () => {
       expect(card.description).toBeTruthy();
       expect(card.lowProfileDescription).toBeTruthy();
       expect(card.rarity).toBeTruthy();
-      expect(Number.isFinite(card.cost)).toBe(true);
+      expect(card.cost === 'X' || Number.isFinite(card.cost)).toBe(true);
       expect(card.target).toBeTruthy();
       expect(card.effects.length).toBeGreaterThan(0);
     }
   });
 
   it('puts every non-starter card in the reward pool', () => {
-    const nonStarterIds = warriorCards
-      .filter((card) => card.rarity !== 'starter')
+    const rewardEligibleIds = warriorCards
+      .filter((card) => card.rarity !== 'starter' && card.rarity !== 'basic')
       .map((card) => card.id)
       .sort();
     const rewardIds = rewardWarriorCards.map((card) => card.id).sort();
 
-    expect(rewardIds).toEqual(nonStarterIds);
-    expect(rewardWarriorCards.every((card) => card.rarity !== 'starter')).toBe(true);
+    expect(rewardIds).toEqual(rewardEligibleIds);
+    expect(rewardWarriorCards.every((card) => card.rarity !== 'starter' && card.rarity !== 'basic')).toBe(true);
   });
 
   it('has unique enemies, low-profile names, and data-driven intent patterns', () => {
@@ -103,11 +103,13 @@ describe('milestone 6 content validation', () => {
       common: 70,
       uncommon: 25,
       rare: 5,
+      ancient: 1,
     });
     expect(CARD_REWARD_RARITY_WEIGHTS.elite).toEqual({
       common: 55,
       uncommon: 35,
       rare: 10,
+      ancient: 2,
     });
     expect(RELIC_REWARD_RARITY_WEIGHTS).toEqual({
       common: 65,

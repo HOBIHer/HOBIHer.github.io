@@ -55,10 +55,12 @@ describe('v1.1.0 experience improvements', () => {
     const firstAttack: CardInstance = {
       instanceId: 'test-attack-1',
       definitionId: 'short-blade-advance',
+      upgraded: false,
     };
     const secondAttack: CardInstance = {
       instanceId: 'test-attack-2',
       definitionId: 'short-blade-advance',
+      upgraded: false,
     };
     combat = {
       ...combat,

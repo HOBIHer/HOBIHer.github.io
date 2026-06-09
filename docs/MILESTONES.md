@@ -219,3 +219,67 @@ Status: Completed on 2026-06-09.
 npm test
 npm run build
 ```
+
+## v1.2.0: Multi-Start Tree Map + Card Upgrades + Potions
+
+Status: Completed on 2026-06-09.
+
+### Scope
+
+- Replace the previous route graph with a deterministic upward tree.
+- Support multiple available start nodes and a single Boss endpoint.
+- Add map node layout metadata for layer, parent links, child links, and simple UI positioning.
+- Store deck cards as persistent card instances with upgrade state.
+- Add a rest-node choice between healing and upgrading one card.
+- Resolve upgraded card costs, effects, and descriptions during combat.
+- Add a small original potion pool and 3 local potion slots.
+- Add potion rewards for combat and elite nodes.
+- Allow potion use during combat without adding any network, account, telemetry, or remote data dependency.
+- Update local save normalization for deck instances, potions, tree-map fields, and rest upgrade results.
+
+### Completion Criteria
+
+- A new run starts from one of several bottom nodes and climbs toward one top Boss endpoint.
+- Locked nodes cannot be skipped, and completing a node unlocks only its declared children.
+- Rest nodes can heal or upgrade one eligible card, with clear normal and low-profile UI labels.
+- Upgraded cards visibly show upgraded names/descriptions and apply upgraded effects in combat.
+- Potion rewards are deterministic, potion slots are capped, and potion use mutates only local run/combat state.
+- Active-run save/load preserves upgraded cards, potion inventory, potion slots, combat snapshots, and route state.
+- Normal and low-profile screens remain presentation-only; engine rules are unchanged by display mode.
+
+### Test Commands
+
+```bash
+npm test
+npm run build
+```
+
+## v1.3.0: New Card Batch Update
+
+Status: Completed on 2026-06-09.
+
+### Scope
+
+- Implement the locally compatible rows from `docs/content_requests/CARD_BATCH_1.3.0.md`.
+- Generate original ids, names, and low-profile names for rows that did not provide them.
+- Preserve the table's costs, types, rarity labels, effects, and explicit upgrades where implementable.
+- Add only the typed engine descriptors needed by this batch.
+- Keep rules in `game/engine`, card data in `game/data`, and presentation in `ui`.
+- Add reward-pool inclusion for every non-basic card.
+- Block rows that conflict with the single-player product model or omit required mechanic definitions.
+
+### Completion Criteria
+
+- Implemented cards have complete normal and low-profile fields, unique ids, targets, effects, rarity, costs, and upgrade definitions.
+- X-cost, ancient rarity, basic rarity, pile manipulation, exhaust triggers, turn hooks, combat-local card modifiers, and new damage scaling descriptors are tested.
+- Low-profile card display uses low-profile names and descriptions.
+- The reward pool includes all non-basic v1.3.0 cards.
+- Blocked rows are recorded in `PROGRESS.md`.
+- No networking, account, telemetry, cloud sync, enemies, relics, map nodes, events, or allies are introduced.
+
+### Test Commands
+
+```bash
+npm test
+npm run build
+```

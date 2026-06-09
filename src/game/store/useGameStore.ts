@@ -16,6 +16,7 @@ import {
   restAtNode,
   skipCardReward,
   startNewRun as startEngineRun,
+  upgradeCardAtNode,
 } from '../engine/run';
 import {
   endPlayerTurn,
@@ -23,6 +24,7 @@ import {
   isCombatWon,
   playCard as playCombatCard,
 } from '../engine/combat';
+import { usePotion as useRunPotion } from '../engine/potions';
 import type {
   BackgroundId,
   CombatState,
@@ -62,7 +64,9 @@ interface GameStore {
   claimReward: (selectedCardId?: string, selectedRelicId?: string) => void;
   skipReward: () => void;
   restAtCurrentNode: () => void;
+  upgradeCardAtCurrentNode: (cardInstanceId: string) => void;
   returnToMapAfterRest: () => void;
+  usePotion: (potionInstanceId: string, targetEnemyId?: string) => void;
   returnToMenu: () => void;
   openRunHistory: () => void;
   openSettings: () => void;
@@ -208,6 +212,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(nextState);
     saveCurrentRun({ ...get(), ...nextState });
   },
+  upgradeCardAtCurrentNode: (cardInstanceId) => {
+    const { run } = get();
+    if (!run) {
+      return;
+    }
+
+    const nextRun = upgradeCardAtNode(run, cardInstanceId);
+    const nextState = stateFromRun(nextRun);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+  },
   returnToMapAfterRest: () => {
     const { run } = get();
     if (!run) {
@@ -215,6 +230,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const nextRun = leaveRestNode(run);
+    const nextState = stateFromRun(nextRun);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+  },
+  usePotion: (potionInstanceId, targetEnemyId) => {
+    const { run, combat, screen } = get();
+    if (!run || screen !== 'combat') {
+      return;
+    }
+
+    const result = useRunPotion(run, combat, potionInstanceId, targetEnemyId);
+    const nextRun = {
+      ...result.run,
+      currentCombat: result.combat,
+      currentScreen: 'combat' as const,
+    };
     const nextState = stateFromRun(nextRun);
     set(nextState);
     saveCurrentRun({ ...get(), ...nextState });

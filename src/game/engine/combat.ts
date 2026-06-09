@@ -13,11 +13,21 @@ import type {
   RelicId,
   RunState,
 } from '../types';
-import { createCardInstances, discardEntireHand, drawCards } from './deck';
+import { createCardInstances, createDeckCardInstances, discardEntireHand, drawCards, type DrawCardsOptions } from './deck';
 import {
+  applyAfterCardPlayedPowers,
+  applyDrawnCardTriggers,
+  applyPlayedCardPostEffects,
+  applyTurnEndCardPowers,
+  applyTurnStartCardPowers,
   applyTurnEndStatusEffects,
-  getCardDefinition,
+  getCardDefinitionForInstance,
+  getCardPlayBlockReason,
+  getCardPlayCost,
+  getCardXValue,
+  getStatus,
   prepareForTurnStart,
+  recordExhaustedCards,
   resolveCardEffects,
   resolveEnemyEffect,
 } from './effects';
@@ -43,8 +53,10 @@ export function startRun(seed: number | string = Date.now(), relics: RelicId[] =
       maxHp: STARTING_MAX_HP,
       gold: 0,
     },
-    deck: [...ironOathStarterDeck],
+    deck: createDeckCardInstances(ironOathStarterDeck, `deck-${rngSeed}`),
     relics: [...relics],
+    potions: [],
+    potionSlots: 3,
     combatsWon: 0,
     map: [],
     completedNodeIds: [],
@@ -89,11 +101,15 @@ export function startCombat(
     maxEnergy: STARTING_ENERGY,
     relics: [...run.relics],
     turnStats: createTurnStats(),
+    combatStats: {
+      hpLossEvents: 0,
+    },
     log: [`遭遇 ${encounterName}。`],
   };
 
   let combat = resolveRelicTriggers(baseCombat, 'onCombatStart');
-  combat = drawWithRelicShuffle(combat, STARTING_HAND_SIZE);
+  combat = pullInnateCardsToOpeningHand(combat);
+  combat = drawWithRelicShuffle(combat, Math.max(0, STARTING_HAND_SIZE - combat.hand.length));
   combat = resolveRelicTriggers(combat, 'onTurnStart');
 
   return {
@@ -122,13 +138,20 @@ export function playCard(
   }
 
   const cardInstance = combat.hand[cardIndex];
-  const card = getCardDefinition(cardInstance.definitionId);
+  const card = getCardDefinitionForInstance(cardInstance);
+  const cost = getCardPlayCost(combat, cardInstance, card);
+  const xValue = getCardXValue(combat, cardInstance, card);
+  const blockedReason = getCardPlayBlockReason(combat, card);
 
   if (card.target === 'enemy' && !isPlayableEnemyTarget(combat, targetEnemyId)) {
     return appendLog(combat, '目标已经无法选择。');
   }
 
-  if (combat.energy < card.cost) {
+  if (blockedReason) {
+    return appendLog(combat, blockedReason);
+  }
+
+  if (combat.energy < cost) {
     return appendLog(combat, `能量不足，无法使用 ${card.name}。`);
   }
 
@@ -137,22 +160,37 @@ export function playCard(
   let nextCombat: CombatState = {
     ...combat,
     hand,
-    energy: combat.energy - card.cost,
+    energy: combat.energy - cost,
     log: [...combat.log, `使用 ${card.name}。`],
   };
 
-  nextCombat = resolveCardEffects(nextCombat, card, targetEnemyId, {
-    onShuffle: (shuffledCombat) => resolveRelicTriggers(shuffledCombat, 'onShuffle'),
+  const drawOptions = createDrawOptions();
+  nextCombat = resolveCardEffects(nextCombat, card, targetEnemyId, drawOptions, {
+    playedCard: cardInstance,
+    xValue,
   });
 
-  const shouldExhaust = card.effects.some((effect) => effect.type === 'exhaustSelf');
+  const postEffects = applyPlayedCardPostEffects(nextCombat, card, cardInstance, drawOptions);
+  nextCombat = postEffects.combat;
+  const resolvedPlayedCard = postEffects.playedCard;
+
+  const shouldExhaust =
+    card.type === 'power' ||
+    Boolean(resolvedPlayedCard.exhaustOnPlay) ||
+    (card.type === 'skill' && getStatus(nextCombat.player, 'skillZeroExhaust') > 0) ||
+    card.effects.some((effect) => effect.type === 'exhaustSelf');
   nextCombat = {
     ...nextCombat,
-    discardPile: shouldExhaust ? nextCombat.discardPile : [...nextCombat.discardPile, cardInstance],
-    exhaustPile: shouldExhaust ? [...nextCombat.exhaustPile, cardInstance] : nextCombat.exhaustPile,
+    discardPile: shouldExhaust ? nextCombat.discardPile : [...nextCombat.discardPile, resolvedPlayedCard],
+    exhaustPile: shouldExhaust ? [...nextCombat.exhaustPile, resolvedPlayedCard] : nextCombat.exhaustPile,
   };
 
+  if (shouldExhaust) {
+    nextCombat = recordExhaustedCards(nextCombat, [resolvedPlayedCard], drawOptions);
+  }
+
   nextCombat = recordCardPlayed(nextCombat, card.type);
+  nextCombat = applyAfterCardPlayedPowers(nextCombat, card, resolvedPlayedCard, targetEnemyId, drawOptions);
   nextCombat = resolveRelicTriggers(nextCombat, 'onCardPlayed', { card });
   nextCombat = resolveCardTypeRelicTrigger(nextCombat, card);
   nextCombat = triggerEnemyKilled(nextCombat, aliveBefore);
@@ -160,16 +198,24 @@ export function playCard(
   return checkCombatEnd(nextCombat);
 }
 
+function createDrawOptions(): DrawCardsOptions {
+  return {
+    onShuffle: (shuffledCombat: CombatState) => resolveRelicTriggers(shuffledCombat, 'onShuffle'),
+    onCardDrawn: applyDrawnCardTriggers,
+  };
+}
+
 export function endPlayerTurn(combat: CombatState): CombatState {
   if (combat.phase !== 'player') {
     return combat;
   }
 
-  let nextCombat = discardEntireHand({
+  let nextCombat = applyTurnEndCardPowers({
     ...combat,
     log: [...combat.log, '结束回合。'],
   });
 
+  nextCombat = discardEntireHand(nextCombat);
   nextCombat = resolveRelicTriggers(nextCombat, 'onTurnEnd');
   nextCombat = applyPlayerTurnEndStatuses(nextCombat);
 
@@ -280,7 +326,8 @@ function startPlayerTurn(combat: CombatState): CombatState {
   };
 
   readyCombat = drawWithRelicShuffle(readyCombat, STARTING_HAND_SIZE);
-  return resolveRelicTriggers(readyCombat, 'onTurnStart');
+  readyCombat = resolveRelicTriggers(readyCombat, 'onTurnStart');
+  return applyTurnStartCardPowers(readyCombat);
 }
 
 function advanceEnemyMove(
@@ -355,6 +402,9 @@ function createTurnStats(): CombatTurnStats {
     attacksPlayed: 0,
     skillsPlayed: 0,
     powersPlayed: 0,
+    cardBlockGains: 0,
+    cardsExhausted: 0,
+    lostHpThisTurn: false,
     killedEnemyIds: [],
   };
 }
@@ -415,10 +465,16 @@ function triggerEnemyKilled(combat: CombatState, aliveBefore: Set<string>): Comb
 }
 
 function applyPlayerTurnEndStatuses(combat: CombatState): CombatState {
+  const hpBefore = combat.player.hp;
   const result = applyTurnEndStatusEffects(combat.player);
+  const hpLoss = Math.max(0, hpBefore - result.target.hp);
   return {
     ...combat,
     player: result.target,
+    combatStats: {
+      ...combat.combatStats,
+      hpLossEvents: combat.combatStats.hpLossEvents + (hpLoss > 0 ? 1 : 0),
+    },
     log: [...combat.log, ...result.log],
   };
 }
@@ -446,9 +502,7 @@ function applyEnemyTurnEndStatuses(combat: CombatState, enemyId: string): Combat
 }
 
 function drawWithRelicShuffle(combat: CombatState, amount: number): CombatState {
-  return drawCards(combat, amount, {
-    onShuffle: (shuffledCombat) => resolveRelicTriggers(shuffledCombat, 'onShuffle'),
-  });
+  return drawCards(combat, amount, createDrawOptions());
 }
 
 function getAliveEnemyIds(combat: CombatState): Set<string> {
@@ -476,5 +530,30 @@ function appendLog<T extends { log: string[]; phase?: CombatPhase; player?: Comb
   return {
     ...state,
     log: [...state.log, entry],
+  };
+}
+
+function pullInnateCardsToOpeningHand(combat: CombatState): CombatState {
+  const innateCards: typeof combat.drawPile = [];
+  const remainingCards: typeof combat.drawPile = [];
+
+  for (const card of combat.drawPile) {
+    const definition = getCardDefinitionForInstance(card);
+    if (definition.innate && innateCards.length + combat.hand.length < STARTING_HAND_SIZE) {
+      innateCards.push(card);
+    } else {
+      remainingCards.push(card);
+    }
+  }
+
+  if (innateCards.length === 0) {
+    return combat;
+  }
+
+  return {
+    ...combat,
+    drawPile: remainingCards,
+    hand: [...combat.hand, ...innateCards],
+    log: [...combat.log, `固有牌进入起始手牌 ${innateCards.length} 张。`],
   };
 }

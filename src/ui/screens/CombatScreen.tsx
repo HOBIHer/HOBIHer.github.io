@@ -5,6 +5,7 @@ import { EnemyPanel } from '../components/EnemyPanel';
 import { EndTurnButton } from '../components/EndTurnButton';
 import { Hand } from '../components/Hand';
 import { PileInfo } from '../components/PileInfo';
+import { PotionBar } from '../components/PotionBar';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { getTerminology } from '../terminology/terminology';
 
@@ -13,6 +14,7 @@ export function CombatScreen() {
   const run = useGameStore((state) => state.run);
   const settings = useGameStore((state) => state.settings);
   const playCard = useGameStore((state) => state.playCard);
+  const usePotion = useGameStore((state) => state.usePotion);
   const endTurn = useGameStore((state) => state.endTurn);
   const returnToMenu = useGameStore((state) => state.returnToMenu);
   const openSettings = useGameStore((state) => state.openSettings);
@@ -105,6 +107,14 @@ export function CombatScreen() {
       </section>
 
       <section className="combat-footer">
+        <PotionBar
+          disabled={combat.phase !== 'player'}
+          mode={settings.mode}
+          onUse={usePotion}
+          potionSlots={run.potionSlots}
+          potions={run.potions}
+          targetEnemyId={targetEnemy?.instanceId}
+        />
         <PileInfo combat={combat} mode={settings.mode} />
         <Hand
           cards={combat.hand}

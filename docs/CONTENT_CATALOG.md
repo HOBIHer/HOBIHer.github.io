@@ -1,6 +1,6 @@
 # Content Catalog
 
-Updated on 2026-06-09 for Milestone 6.
+Updated on 2026-06-09 for v1.3.0.
 
 All content below is original project content. The low-profile names are neutral labels used by stealth mode and do not change rules.
 
@@ -42,6 +42,130 @@ All content below is original project content. The low-profile names are neutral
 | `wall-that-walks` | 行走之墙 | 移动防线 | skill | rare | Gain 14 block and 8 next-turn block. |
 | `red-temper` | 赤淬 | 强制增幅 | power | rare | Lose 3 HP and gain 3 strength. Exhaust. |
 | `final-formula` | 终式 | 终稿方案 | attack | rare | Deal 16 damage at half HP or lower; otherwise deal 8. |
+
+### v1.3.0 Card Batch
+
+The v1.3.0 batch adds 83 implemented local cards for Iron Oath. Rows 27, 60, 72, and 75 from `docs/content_requests/CARD_BATCH_1.3.0.md` are blocked because they require another player/ally model or undefined `Giant Rock`/`Plating` behavior.
+
+| ID | Name | Low-Profile Name | Type | Rarity | Short Effect |
+| --- | --- | --- | --- | --- | --- |
+| `v130-cinder-recall` | 余烬回令 | 回收指令 | power | rare | Turn start: return a random attack from discard to hand upgraded. |
+| `v130-echo-scratch` | 回声刻痕 | 复写推进 | attack | common | Deal damage and copy itself to discard. |
+| `v130-field-refit` | 现场改装 | 现场升级 | skill | common | Gain block and upgrade cards in hand. |
+| `v130-ash-count-lunge` | 灰数突刺 | 归档计数推进 | attack | uncommon | Deal damage plus damage per exhausted card. |
+| `v130-locked-bulwark` | 锁栏守势 | 缓冲留存 | power | rare | Keep block at turn start. |
+| `v130-foundation-breach` | 基准破口 | 基础突破 | attack | basic | Deal damage and apply vulnerable. |
+| `v130-floodgate-draw` | 闸门抽调 | 批量补充 | skill | uncommon | Draw, then prevent more draw this turn. |
+| `v130-blood-bulwark` | 血铆壁 | 风险缓冲 | skill | common | Lose HP and gain block. |
+| `v130-blood-spark` | 血火换档 | 高压配额 | skill | common | Lose HP and gain energy. |
+| `v130-ironfall-driver` | 坠铁贯击 | 重项推进 | attack | uncommon | Deal heavy damage. |
+| `v130-guard-snap` | 盾势反扣 | 缓冲折算 | attack | common | Deal damage equal to current block. |
+| `v130-marrow-bargain` | 髓火契约 | 风险增幅 | skill | rare | Lose HP, exhaust a card, gain strength. |
+| `v130-ancient-puncture` | 古痕穿击 | 古式标注 | attack | ancient | Deal heavy damage and apply vulnerable. |
+| `v130-red-rain` | 赤雨横扫 | 高压群推 | attack | common | Lose HP and damage all enemies. |
+| `v130-flaw-pick` | 裂隙挑刺 | 暴露追算 | attack | uncommon | Deal damage plus damage per target vulnerable stack. |
+| `v130-cycle-sift` | 筛页换手 | 移除补充 | skill | uncommon | Exhaust a card and draw. |
+| `v130-surge-cascade` | 涌流连发 | 顶项连发 | skill | rare | X-cost: play top draw-pile cards. |
+| `v130-ravage-sort` | 乱序重击 | 随机移除推进 | attack | common | Deal damage and randomly exhaust a card. |
+| `v130-exposed-guard` | 露隙防线 | 暴露减压 | skill | uncommon | Gain block and reduce vulnerable-enemy damage this turn. |
+| `v130-blade-ledger` | 刃账合计 | 推进累计 | attack | rare | Damage all enemies, scaling with attacks already played. |
+| `v130-ancient-edict` | 古律敕令 | 技项归零 | power | ancient | Skills cost 0 and exhaust when played. |
+| `v130-drip-ward` | 滴血护栏 | 周期换盾 | power | rare | Turn start: lose HP and gain block. |
+| `v130-open-wound-law` | 开创律 | 暴露放大 | power | rare | Vulnerable enemies take extra damage. |
+| `v130-ash-draw-engine` | 灰卷引擎 | 移除补项 | power | rare | Draw whenever a card is exhausted. |
+| `v130-plain-guard` | 朴盾 | 基础缓冲 | skill | basic | Gain block. |
+| `v130-forge-growth` | 炉心滋长 | 周期增幅 | power | rare | Turn start: gain strength. |
+| `v130-exposed-flurry` | 破口连刺 | 暴露连推 | attack | uncommon | Hit twice if target is vulnerable. |
+| `v130-threat-harvest` | 危痕收割 | 暴露转增 | skill | uncommon | Apply vulnerable, gain strength per vulnerable stack, exhaust. |
+| `v130-paper-shred-engine` | 碎页机 | 顶项清理 | power | uncommon | Draw, then exhaust draw-pile top at turn start. |
+| `v130-rekindle-guard` | 余灰护身 | 移除后缓冲 | skill | uncommon | Gain block again if a card was exhausted this turn. |
+| `v130-sealed-budget` | 封缄配额 | 手牌计额 | skill | uncommon | Gain energy per attack in hand, then block more energy gain. |
+| `v130-harvest-heart` | 夺芯斩 | 完成扩容 | attack | rare | Deal damage; if fatal, increase max HP; exhaust. |
+| `v130-ash-shell` | 灰壳协议 | 移除缓冲 | power | uncommon | Gain block whenever a card is exhausted. |
+| `v130-hand-burn-finisher` | 焚手终击 | 全手清算 | attack | rare | Exhaust hand, deal damage per exhausted card, exhaust. |
+| `v130-reckless-training` | 莽练双击 | 双向增幅 | attack | uncommon | Multi-hit, gain strength, enemy gains strength. |
+| `v130-revenge-guard` | 回敬护架 | 临时回弹 | skill | uncommon | Gain block and counter enemy attacks this turn. |
+| `v130-ash-fuel` | 灰燃补能 | 移除配额 | skill | uncommon | If a card was exhausted this turn, gain energy; exhaust. |
+| `v130-top-cast` | 顶页施放 | 顶项执行 | skill | common | Play the top draw-pile card and exhaust it. |
+| `v130-archive-return` | 归档回顶 | 回顶处理 | attack | common | Deal damage and move a discard card to draw top. |
+| `v130-basic-autopilot` | 短刃自鸣 | 基础自动项 | power | rare | Drawn basic attacks auto-play against random enemies. |
+| `v130-blood-puncture` | 血针贯击 | 风险推进 | attack | uncommon | Lose HP and deal damage. |
+| `v130-exhaust-star` | 烬星横坠 | 移除区自启 | attack | uncommon | Damage all; auto-plays from exhaust at its timing. |
+| `v130-steel-wall` | 钢墙合拢 | 大额缓冲 | skill | rare | Gain heavy block and exhaust. |
+| `v130-attack-summons` | 临刃调度 | 随机推进项 | skill | uncommon | Add a random temporary free attack to hand; exhaust. |
+| `v130-pain-bell` | 痛钟 | 失稳震荡 | power | uncommon | Turn start HP loss; own-turn HP loss damages all enemies. |
+| `v130-raw-might` | 生铁蛮力 | 直接增幅 | power | uncommon | Gain strength. |
+| `v130-press-and-cut` | 压盾短斩 | 缓冲推进 | attack | common | Gain block and deal damage. |
+| `v130-block-spark` | 盾火迸发 | 缓冲触发 | power | rare | Gaining block damages a random enemy. |
+| `v130-third-blade-copy` | 三刃复写 | 三项复制 | power | uncommon | Each turn's third attack copies itself to hand. |
+| `v130-hamstring-order` | 断筋令 | 临时降幅 | attack | rare | Deal damage and temporarily reduce enemy strength. |
+| `v130-fracture-double` | 裂痕翻倍 | 暴露倍增 | attack | common | Deal damage, double vulnerable stacks, exhaust. |
+| `v130-field-mend` | 野炉缝合 | 稳定修复 | skill | rare | Heal and exhaust. |
+| `v130-blood-market` | 血市筹码 | 高压补项 | skill | rare | Lose HP, gain energy, draw, exhaust. |
+| `v130-echo-strike` | 回响击令 | 推进复执 | skill | rare | Next attack(s) play an extra time this turn. |
+| `v130-ash-threshold` | 灰门齐射 | 移除阈值 | attack | rare | Requires 3+ exhausted cards; damage all enemies. |
+| `v130-basic-ledger` | 短刃账簿 | 基础项合计 | attack | common | Deal damage plus damage per basic attack card. |
+| `v130-seek-nonblade` | 寻隙抽调 | 非推进检索 | attack | uncommon | Deal damage and draw until a non-attack. |
+| `v130-quick-study` | 快读斩 | 推进补项 | attack | common | Deal damage and draw. |
+| `v130-morning-ration` | 晨钟配给 | 周期配额 | power | rare | Turn start: gain energy. |
+| `v130-attack-bracing` | 攻势垫步 | 推进带缓冲 | skill | uncommon | Attacks grant block this turn. |
+| `v130-growing-cut` | 养刃 | 成长推进 | attack | uncommon | Deal damage; this card gains combat damage. |
+| `v130-pain-muscle` | 痛劲 | 失稳增幅 | power | uncommon | Own-turn HP loss grants strength. |
+| `v130-nonblade-purge` | 非刃清册 | 非推进清理 | skill | uncommon | Exhaust non-attacks in hand; gain block per card. |
+| `v130-burst-temper` | 骤淬一击 | 临时推进 | attack | common | Deal damage and gain temporary strength. |
+| `v130-guarded-study` | 护读 | 缓冲补项 | skill | common | Gain block and draw. |
+| `v130-pain-flurry` | 痛感连刺 | 失稳连推 | attack | uncommon | Hits more if HP was lost this turn. |
+| `v130-end-blade-proxy` | 末刃代行 | 周期末代理 | power | uncommon | End turn: auto-play a random attack from hand. |
+| `v130-ash-generation` | 灰中生牌 | 移除生成 | skill | rare | Exhaust hand; add random cards per exhausted card. |
+| `v130-falling-cleave` | 坠势横劈 | 降费群推 | attack | uncommon | Cost reduced by attacks played this turn; damage all. |
+| `v130-plain-strike` | 朴素击 | 基础推进 | attack | basic | Deal damage. |
+| `v130-random-needles` | 散针齐鸣 | 随机多点 | attack | common | Random-enemy multi-hit. |
+| `v130-expose-guard` | 揭隙守势 | 缓冲标注 | skill | uncommon | Gain block and apply vulnerable. |
+| `v130-scar-count` | 伤痕计击 | 失稳计次 | attack | rare | Extra hits for each HP-loss event this combat. |
+| `v130-graft-blade` | 嫁刃双斩 | 移除增伤 | attack | rare | Multi-hit; exhaust a random attack to grow this card. |
+| `v130-wide-exposure` | 广域揭伤 | 群体暴露 | attack | common | Damage all and apply vulnerable to all. |
+| `v130-expose-mark` | 露隙烙印 | 暴露标记 | skill | common | Apply vulnerable and exhaust. |
+| `v130-guarded-cull` | 护势筛除 | 缓冲移除 | skill | common | Gain block and exhaust a card. |
+| `v130-double-cut` | 双线短斩 | 双次推进 | attack | common | Multi-hit. |
+| `v130-doubling-guard` | 首盾倍律 | 首缓翻倍 | power | rare | First block gained from a card each turn is doubled. |
+| `v130-free-next-blade` | 空费刃令 | 下项免额 | attack | uncommon | Deal damage; next attack costs 0. |
+| `v130-crushing-mark` | 压痕标记 | 降效暴露 | attack | uncommon | Deal damage and apply weak plus vulnerable. |
+| `v130-expose-draw-engine` | 揭伤卷轴 | 暴露补项 | power | uncommon | Draw whenever you apply vulnerable. |
+| `v130-x-wide-storm` | 横潮 X 式 | 全域 X 推 | attack | uncommon | X-cost all-enemy repeated damage. |
+
+## v1.3.0 Mechanics Added
+
+- `X` card costs, where the card spends current energy and effects can use that spent value.
+- Combat-local card modifiers: temporary cost override, exhaust-on-play, innate, and combat damage growth.
+- Pile effects for copying cards, exhausting selected/random/all hand cards, moving discard cards to draw top, playing draw-pile top cards, and draw-until type search.
+- Turn and event hooks represented as statuses for block retention, turn-start HP/block/strength/energy, exhaust triggers, vulnerable triggers, HP-loss triggers, block-gain damage, attack-copy cadence, next-attack replay/free cost, end-turn attack auto-play, and exhaust-pile auto-play.
+- `basic` and `ancient` card rarities. Basic cards are excluded from rewards; ancient cards are reward-eligible with low weight.
+
+## Card Upgrades
+
+All current Iron Oath cards can be upgraded once through a rest-node upgrade action. v1.3.0 cards use explicit table-driven upgrades when present; older cards still use generated local upgrades:
+
+- Attack cards improve their primary damage effect.
+- Skill cards improve their primary block, heal, draw, energy, or status effect.
+- Power cards improve their primary status, draw, or energy effect.
+- Conditional branches are upgraded recursively.
+- Upgrade cost never drops below 0.
+- Upgraded display names append `+`.
+- Normal and low-profile descriptions are generated from the upgraded effects.
+
+These upgrade values are original project-owned tuning and are not copied from any commercial game table.
+
+## Potions
+
+Potions are local one-use combat consumables. Runs have 3 potion slots.
+
+| ID | Name | Low-Profile Name | Target | Short Effect |
+| --- | --- | --- | --- | --- |
+| `small-healing-fluid` | 小型治疗液 | 稳定补剂 | self | Heal 10 HP. |
+| `strength-draught` | 力量药剂 | 强化补剂 | self | Gain 2 strength. |
+| `guard-draught` | 防护药剂 | 缓冲补剂 | self | Gain 12 block. |
+| `draw-draught` | 抽牌药剂 | 补充补剂 | self | Draw 2 cards. |
+| `risk-mark-bottle` | 易损瓶 | 风险标记瓶 | enemy | Apply 2 vulnerable to one enemy. |
 
 ## Enemies
 

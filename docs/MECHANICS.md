@@ -165,6 +165,46 @@ Updated on 2026-06-09.
 | `continue run` | Implemented | Main menu shows a continue action when an active run is available in memory or local save. |
 | `local save v2` | Implemented | Active run saves now normalize branching map data, defeated enemy state, combat snapshots, and rest results while preserving legacy v1 read fallback. |
 
+## v1.2.0 Map, Upgrade, and Potion Update
+
+Updated on 2026-06-09.
+
+| Mechanic | Status | Notes |
+| --- | --- | --- |
+| `tree map` | Implemented | Act 1 now uses a deterministic upward tree with 12 nodes: 3 bottom start nodes, intermediate combat/elite branches, 2 rest nodes, and 1 top Boss endpoint. |
+| `map layers` | Implemented | Nodes store `layer`, `parentNodeIds`, `nextNodeIds`, and layout coordinates. Only available start nodes or unlocked child nodes can be entered. |
+| `branch locking` | Implemented | Entering one available node on a layer locks same-layer alternatives, then completing the node unlocks only its declared children. |
+| `card instances` | Implemented | Run decks store persistent card instances with `definitionId` and upgrade state. Combat creates temporary combat-local instances from those persistent cards. |
+| `card upgrades` | Implemented | Rest nodes can upgrade one unupgraded deck card instead of healing. Upgrades use project-owned generated effects and text, preserve nonnegative cost, and append a `+` display marker. |
+| `upgraded combat effects` | Implemented | Combat resolves the effective card definition for each card instance, so upgraded costs, descriptions, and effects apply during play. |
+| `rest choice` | Implemented | Rest nodes support either healing for 30% max HP or upgrading one card. The chosen action completes the node and opens the next route step. |
+| `potions` | Implemented | Runs have 3 potion slots. Potion rewards can add local one-use consumables, and combat can consume them for heal, block, draw, self-status, or enemy-status effects. |
+| `potion reward` | Implemented | Normal and elite rewards can include a deterministic potion offer. If potion slots are full, claiming the reward skips the potion without crashing. |
+| `local save v3` | Implemented | Active run saves normalize upgraded deck cards, combat piles, potion inventory, potion slots, tree-map fields, combat snapshots, and rest upgrade results while keeping v1/v2 read fallback. |
+| `stealth presentation` | Expanded | Tree map, rest upgrade choices, card/pile empty states, rewards, and potion names/descriptions use low-profile terminology without changing rules. |
+
+## v1.3.0 Card Batch Update
+
+Updated on 2026-06-09.
+
+| Mechanic | Status | Notes |
+| --- | --- | --- |
+| `v1.3.0 card batch` | Implemented | 83 local Iron Oath cards from `docs/content_requests/CARD_BATCH_1.3.0.md` were implemented with original ids, names, low-profile names, descriptions, explicit upgrades, and reward-pool inclusion for non-basic cards. Rows 27, 60, 72, and 75 are blocked in `PROGRESS.md`. |
+| `CardCost: X` | Implemented | Cards can declare `cost: 'X'`. Playing an X-cost card spends current energy and passes the spent value to X-scaling effects. Covered by `v130-x-wide-storm` tests. |
+| `basic` and `ancient` rarities | Implemented | `basic` cards are excluded from reward pools. `ancient` cards are reward-eligible with low card reward weight. |
+| `innate` | Implemented | Upgraded cards can declare `innate`, causing them to enter the opening hand before normal opening draw fills to hand size. |
+| `combat-local card modifiers` | Implemented | Card instances can carry cost overrides, exhaust-on-play, and combat damage bonuses. Used by generated attacks, next-attack free effects, and growing attack cards. |
+| `copySelfToDiscard` / `copySelfToHand` | Implemented | Cards can create combat-local copies of themselves in discard or hand. |
+| `upgradeCardsInHand` | Implemented | Cards can upgrade the first eligible hand card or all eligible hand cards for the current combat. |
+| `preventDrawThisTurn` / `preventEnergyGainThisTurn` | Implemented | One-turn status gates block later draw or extra energy after the card's own effect resolves. |
+| `exhaustFromHand` | Implemented | Cards can exhaust selected, random, all, type-filtered, or type-excluded hand cards. Exhaust triggers are centralized and deterministic. |
+| `playTopCards` / `drawUntilCardType` / `moveDiscardToDrawTop` | Implemented | Pile manipulation supports playing draw-pile top cards, draw-until searches, and returning discard cards to draw top. |
+| `damage scaling descriptors` | Implemented | New typed damage descriptors cover block value, exhaust pile size, status stacks, exhausted cards this turn, basic attack count, attacks played this turn, HP-loss events this combat, random hits, repeated hits, and all-enemy X repeats. |
+| `turn and event power statuses` | Implemented | Power-style hooks are represented as statuses for block retention, turn-start HP/block/strength/energy, exhaust draw/block, vulnerable bonus/draw, HP-loss damage/strength, block-gain damage, third-attack copy, next-attack extra play/free cost, end-turn attack auto-play, and exhaust-pile auto-play. |
+| `power card resolution` | Implemented | Power cards now leave the combat cycle when played as a type rule, matching persistent ability behavior while keeping rule logic in the engine. |
+| `low-profile card display` | Verified | New cards render `lowProfileName` and `lowProfileDescription` in stealth mode through existing `CardView` behavior. |
+| `v1.3.0 validation tests` | Implemented | `src/tests/v130CardBatch.test.ts` validates batch row counts, blocked rows, unique ids, complete fields, upgrades, reward eligibility, low-profile rendering, all-card play smoke coverage, and representative new mechanisms. |
+
 ## Naming Note
 
 The identifiers above are internal project terms for planning. User-facing names may differ by theme, especially in low-profile mode.

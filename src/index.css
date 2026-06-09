@@ -621,6 +621,24 @@ h3 {
   gap: 10px;
 }
 
+.upgrade-list {
+  display: grid;
+  gap: 10px;
+}
+
+.upgrade-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.upgrade-card-button {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+}
+
 .pile-info {
   display: grid;
   gap: 10px;
@@ -670,6 +688,50 @@ h3 {
   margin: 0;
   color: var(--app-muted);
   font-size: 0.86rem;
+}
+
+.potion-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-strong);
+}
+
+.potion-button,
+.potion-empty-slot {
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  color: var(--app-text);
+  background: var(--app-chip);
+}
+
+.potion-button {
+  display: grid;
+  gap: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.potion-button span {
+  color: var(--app-muted);
+  font-size: 0.78rem;
+}
+
+.potion-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.potion-empty-slot {
+  display: grid;
+  place-items: center;
+  color: var(--app-muted);
+  font-weight: 800;
 }
 
 .section-title {

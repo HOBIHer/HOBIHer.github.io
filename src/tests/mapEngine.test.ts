@@ -8,35 +8,41 @@ import {
 } from '../game/engine/map';
 
 describe('branching map engine', () => {
-  it('creates a deterministic act 1 route with combat, elite, rest, and boss nodes', () => {
+  it('creates a deterministic upward tree with multiple starts and one boss', () => {
     const map = createBranchingMap('map-seed');
-    const floors = new Set(map.map((node) => node.floor));
+    const layers = new Set(map.map((node) => node.layer));
+    const starts = map.filter((node) => node.parentNodeIds.length === 0);
+    const bosses = map.filter((node) => node.type === 'boss');
 
-    expect(map).toHaveLength(9);
-    expect(floors.size).toBeGreaterThanOrEqual(5);
-    expect(map[0].type).toBe('combat');
-    expect(map.filter((node) => node.floor === 2 && node.type === 'combat')).toHaveLength(2);
+    expect(map).toHaveLength(12);
+    expect(layers.size).toBeGreaterThanOrEqual(5);
+    expect(starts).toHaveLength(3);
+    expect(starts.every((node) => node.status === 'available')).toBe(true);
+    expect(bosses).toHaveLength(1);
+    expect(bosses[0].label).toBe('最终 Boss');
     expect(map.some((node) => node.type === 'elite')).toBe(true);
     expect(map.some((node) => node.type === 'rest')).toBe(true);
-    expect(map.at(-1)?.type).toBe('boss');
     expect(createLinearMap('map-seed')).toEqual(map);
   });
 
-  it('only allows the first node at run start', () => {
+  it('only allows start nodes at run start', () => {
     const map = createBranchingMap('entry-seed');
+    const starts = map.filter((node) => node.parentNodeIds.length === 0);
+    const nonStarts = map.filter((node) => node.parentNodeIds.length > 0);
 
-    expect(canEnterNode(map, map[0].id)).toBe(true);
-    expect(map.slice(1).every((node) => !canEnterNode(map, node.id))).toBe(true);
-    expect(map.slice(1).every((node) => node.status === 'locked')).toBe(true);
+    expect(starts.every((node) => canEnterNode(map, node.id))).toBe(true);
+    expect(nonStarts.every((node) => !canEnterNode(map, node.id))).toBe(true);
+    expect(nonStarts.every((node) => node.status === 'locked')).toBe(true);
   });
 
   it('unlocks all next branch nodes after completion', () => {
     const map = createBranchingMap('unlock-seed');
-    const nextMap = markNodeCompleted(map, map[0].id);
-    const nextNodeIds = new Set(map[0].nextNodeIds);
+    const start = map.find((node) => node.parentNodeIds.length === 0)!;
+    const nextMap = markNodeCompleted(map, start.id);
+    const nextNodeIds = new Set(start.nextNodeIds);
     const unlocked = nextMap.filter((node) => nextNodeIds.has(node.id));
 
-    expect(nextMap[0].status).toBe('completed');
+    expect(nextMap.find((node) => node.id === start.id)?.status).toBe('completed');
     expect(unlocked).toHaveLength(2);
     expect(unlocked.every((node) => node.status === 'available')).toBe(true);
     expect(unlocked.every((node) => canEnterNode(nextMap, node.id))).toBe(true);

@@ -4,7 +4,11 @@ export type CharacterClassId = CharacterId;
 
 export type CardType = 'attack' | 'skill' | 'power';
 
-export type CardRarity = 'starter' | 'common' | 'uncommon' | 'rare';
+export type CardRarity = 'starter' | 'basic' | 'common' | 'uncommon' | 'rare' | 'ancient';
+
+export type RewardCardRarity = Exclude<CardRarity, 'starter' | 'basic'>;
+
+export type CardCost = number | 'X';
 
 export type CardTarget = 'enemy' | 'allEnemies' | 'self' | 'none';
 
@@ -35,11 +39,15 @@ export interface MapNode {
   id: string;
   index: number;
   floor?: number;
+  layer: number;
+  parentNodeIds: string[];
+  x: number;
+  y: number;
   type: MapNodeType;
   label: string;
   lowProfileLabel: string;
   status: MapNodeStatus;
-  nextNodeIds?: string[];
+  nextNodeIds: string[];
   enemyGroupId?: string;
   bossId?: string;
 }
@@ -65,6 +73,7 @@ export interface RewardBundle {
   cardChoices: string[];
   gold: number;
   relicChoices: string[];
+  potionId?: PotionId;
   claimed: boolean;
 }
 
@@ -88,9 +97,14 @@ export interface RunSummary {
 
 export interface RestResult {
   nodeId: string;
+  action?: 'rest' | 'upgrade';
   beforeHp: number;
   afterHp: number;
   healed: number;
+  upgradedCardInstanceId?: string;
+  upgradedCardDefinitionId?: string;
+  upgradedCardName?: string;
+  upgradedLowProfileName?: string;
 }
 
 export interface CombatStartSnapshot {
@@ -100,6 +114,7 @@ export interface CombatStartSnapshot {
   rngSeed: number;
   characterHp: number;
   map: MapNode[];
+  potions: PotionInstance[];
   combat: CombatState;
 }
 
@@ -126,7 +141,34 @@ export type StatusId =
   | 'thorns'
   | 'regen'
   | 'bleed'
-  | 'barrierLock';
+  | 'barrierLock'
+  | 'blockRetention'
+  | 'noDraw'
+  | 'noEnergyGain'
+  | 'vulnerableEnemyDamageReduction'
+  | 'skillZeroExhaust'
+  | 'startTurnLoseHpBlock'
+  | 'vulnerableDamageBonus'
+  | 'drawOnExhaust'
+  | 'blockOnExhaust'
+  | 'startTurnStrength'
+  | 'startTurnExhaustTopCard'
+  | 'startTurnRecallAttack'
+  | 'counterAttack'
+  | 'autoPlayDrawnBasicAttack'
+  | 'startTurnLoseHpDamageAll'
+  | 'damageAllOnHpLoss'
+  | 'damageRandomOnBlock'
+  | 'thirdAttackCopy'
+  | 'temporaryStrength'
+  | 'nextAttackExtraPlay'
+  | 'nextAttackFree'
+  | 'startTurnEnergy'
+  | 'attackBlockThisTurn'
+  | 'hpLossStrength'
+  | 'endTurnAutoPlayAttack'
+  | 'firstCardBlockDouble'
+  | 'drawOnVulnerable';
 
 export type StatusMap = Partial<Record<StatusId, number>>;
 
@@ -147,6 +189,7 @@ export interface StatusDefinition {
   turnEndHealPerStack?: number;
   turnEndHpLossPerStack?: number;
   preservesBlockAtTurnStart?: boolean;
+  preservesBlockEveryTurn?: boolean;
 }
 
 export type RelicId = string;
@@ -222,6 +265,16 @@ export type CardCondition =
       type: 'playerHasBlock';
     }
   | {
+      type: 'exhaustedCardThisTurn';
+    }
+  | {
+      type: 'lostHpThisTurn';
+    }
+  | {
+      type: 'exhaustPileAtLeast';
+      amount: number;
+    }
+  | {
       type: 'targetHasStatus';
       status: StatusId;
     };
@@ -237,6 +290,53 @@ export type CardEffect =
       amount: number;
     }
   | {
+      type: 'damageRepeated';
+      amount: number;
+      times: number | 'x' | 'hpLossEventsThisCombat';
+      target: 'enemy';
+    }
+  | {
+      type: 'damageRandomEnemy';
+      amount: number;
+      times: number;
+    }
+  | {
+      type: 'damageAllRepeated';
+      amount: number;
+      times: 'x';
+    }
+  | {
+      type: 'damageAllPerAttackPlayed';
+      baseAmount: number;
+      amountPerAttack: number;
+    }
+  | {
+      type: 'damagePerPileCard';
+      amountPerCard: number;
+      pile: 'exhaust';
+      target: 'enemy';
+    }
+  | {
+      type: 'damagePerStatusStack';
+      amountPerStack: number;
+      status: StatusId;
+      target: 'enemy';
+    }
+  | {
+      type: 'damagePerCardsExhaustedThisTurn';
+      amountPerCard: number;
+      target: 'enemy';
+    }
+  | {
+      type: 'damagePerBasicAttackCard';
+      amountPerCard: number;
+      target: 'enemy';
+    }
+  | {
+      type: 'damageEqualToBlock';
+      target: 'enemy';
+    }
+  | {
       type: 'block';
       amount: number;
       target?: 'player';
@@ -246,12 +346,55 @@ export type CardEffect =
       amount: number;
     }
   | {
+      type: 'drawUntilCardType';
+      cardType: CardType;
+      invert?: boolean;
+    }
+  | {
       type: 'discard';
       amount: number;
     }
   | {
+      type: 'copySelfToDiscard';
+      amount: number;
+    }
+  | {
+      type: 'copySelfToHand';
+      amount: number;
+    }
+  | {
+      type: 'upgradeCardsInHand';
+      amount: number | 'all';
+    }
+  | {
+      type: 'preventDrawThisTurn';
+    }
+  | {
+      type: 'exhaustFromHand';
+      amount: number | 'all';
+      random?: boolean;
+      cardType?: CardType;
+      excludeType?: CardType;
+    }
+  | {
+      type: 'moveDiscardToDrawTop';
+      amount: number;
+    }
+  | {
+      type: 'playTopCards';
+      count: number | 'x' | 'xPlusOne';
+      exhaustPlayed?: boolean;
+    }
+  | {
       type: 'gainEnergy';
       amount: number;
+    }
+  | {
+      type: 'gainEnergyPerCardInHand';
+      cardType: CardType;
+    }
+  | {
+      type: 'preventEnergyGainThisTurn';
     }
   | {
       type: 'loseHp';
@@ -268,10 +411,76 @@ export type CardEffect =
       amount: number;
     }
   | {
+      type: 'blockPerCardsExhaustedThisTurn';
+      amountPerCard: number;
+    }
+  | {
       type: 'applyStatus';
       status: StatusId;
       amount: number;
       target: 'player' | 'enemy';
+    }
+  | {
+      type: 'applyStatusAll';
+      status: StatusId;
+      amount: number;
+    }
+  | {
+      type: 'gainStatusPerTargetStatusStack';
+      status: StatusId;
+      targetStatus: StatusId;
+      amountPerStack: number;
+      target: 'player';
+    }
+  | {
+      type: 'gainMaxHpIfTargetKilled';
+      amount: number;
+    }
+  | {
+      type: 'addRandomCardToHand';
+      cardType?: CardType;
+      upgraded?: boolean;
+      costOverride?: number;
+      exhaustOnPlay?: boolean;
+    }
+  | {
+      type: 'addRandomCardsPerCardsExhaustedThisTurn';
+      upgraded?: boolean;
+    }
+  | {
+      type: 'doubleTargetStatus';
+      status: StatusId;
+    }
+  | {
+      type: 'gainTemporaryStrength';
+      amount: number;
+      target: 'player' | 'enemy';
+    }
+  | {
+      type: 'requireExhaustPileAtLeast';
+      amount: number;
+    }
+  | {
+      type: 'setNextAttackExtraPlay';
+      count: number;
+    }
+  | {
+      type: 'setNextAttackFree';
+      count: number;
+    }
+  | {
+      type: 'costReducedByAttacksPlayedThisTurn';
+    }
+  | {
+      type: 'increaseThisCardDamage';
+      amount: number;
+    }
+  | {
+      type: 'exhaustRandomAttackAndAddDamageToThisCard';
+    }
+  | {
+      type: 'autoPlayFromExhaust';
+      timing: 'turnStart' | 'turnEnd';
     }
   | {
       type: 'conditional';
@@ -289,17 +498,70 @@ export interface CardDefinition {
   lowProfileName: string;
   type: CardType;
   rarity: CardRarity;
-  cost: number;
+  cost: CardCost;
   target: CardTarget;
   description: string;
   lowProfileDescription: string;
   effects: CardEffect[];
+  upgrade?: CardUpgrade;
   retain?: boolean;
+  innate?: boolean;
+}
+
+export interface CardUpgrade {
+  cost?: CardCost;
+  description?: string;
+  lowProfileDescription?: string;
+  effects?: CardEffect[];
+  innate?: boolean;
 }
 
 export interface CardInstance {
   instanceId: string;
   definitionId: string;
+  upgraded: boolean;
+  costOverride?: number;
+  exhaustOnPlay?: boolean;
+  damageBonus?: number;
+}
+
+export type PotionId = string;
+
+export type PotionTarget = 'self' | 'enemy';
+
+export type PotionEffect =
+  | {
+      type: 'heal';
+      amount: number;
+    }
+  | {
+      type: 'block';
+      amount: number;
+    }
+  | {
+      type: 'draw';
+      amount: number;
+    }
+  | {
+      type: 'applyStatus';
+      status: StatusId;
+      amount: number;
+      target: 'player' | 'enemy';
+    };
+
+export interface PotionDefinition {
+  id: PotionId;
+  name: string;
+  lowProfileName: string;
+  description: string;
+  lowProfileDescription: string;
+  target: PotionTarget;
+  effects: PotionEffect[];
+}
+
+export interface PotionInstance {
+  instanceId: string;
+  definitionId: PotionId;
 }
 
 export type EnemyIntentType = 'attack' | 'defend' | 'debuff' | 'mixed' | 'wait';
@@ -383,6 +645,7 @@ export interface CombatState {
   maxEnergy: number;
   relics: RelicId[];
   turnStats: CombatTurnStats;
+  combatStats: CombatStats;
   log: string[];
 }
 
@@ -391,7 +654,14 @@ export interface CombatTurnStats {
   attacksPlayed: number;
   skillsPlayed: number;
   powersPlayed: number;
+  cardBlockGains: number;
+  cardsExhausted: number;
+  lostHpThisTurn: boolean;
   killedEnemyIds: string[];
+}
+
+export interface CombatStats {
+  hpLossEvents: number;
 }
 
 export interface CharacterState {
@@ -409,8 +679,10 @@ export interface RunState {
   status: RunStatus;
   currentScreen: GameScreen;
   character: CharacterState;
-  deck: string[];
+  deck: CardInstance[];
   relics: RelicId[];
+  potions: PotionInstance[];
+  potionSlots: number;
   combatsWon: number;
   map: MapNode[];
   currentNodeId?: string;

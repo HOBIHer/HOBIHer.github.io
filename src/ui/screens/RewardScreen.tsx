@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { warriorCardById } from '../../game/data/cards/warrior';
+import { potionById } from '../../game/data/potions/potions';
 import { relicById } from '../../game/data/relics/relics';
 import { useGameStore } from '../../game/store/useGameStore';
 import type { RelicId, RewardBundle, UserSettings } from '../../game/types';
@@ -8,6 +9,7 @@ import { getTerminology } from '../terminology/terminology';
 
 export function RewardScreen() {
   const pendingReward = useGameStore((state) => state.pendingReward);
+  const run = useGameStore((state) => state.run);
   const settings = useGameStore((state) => state.settings);
   const claimReward = useGameStore((state) => state.claimReward);
   const skipReward = useGameStore((state) => state.skipReward);
@@ -19,6 +21,8 @@ export function RewardScreen() {
       claimReward={claimReward}
       openSettings={openSettings}
       pendingReward={pendingReward}
+      potionSlots={run?.potionSlots ?? 0}
+      potionsCount={run?.potions.length ?? 0}
       returnToMenu={returnToMenu}
       settings={settings}
       skipReward={skipReward}
@@ -28,6 +32,8 @@ export function RewardScreen() {
 
 interface RewardScreenViewProps {
   pendingReward?: RewardBundle;
+  potionsCount?: number;
+  potionSlots?: number;
   settings: UserSettings;
   claimReward: (selectedCardId?: string, selectedRelicId?: string) => void;
   skipReward: () => void;
@@ -37,6 +43,8 @@ interface RewardScreenViewProps {
 
 export function RewardScreenView({
   pendingReward,
+  potionsCount = 0,
+  potionSlots = 0,
   settings,
   claimReward,
   skipReward,
@@ -67,6 +75,8 @@ export function RewardScreenView({
   const skipText = settings.mode === 'stealth' ? '跳过操作项' : '跳过卡牌';
   const claimText = settings.mode === 'stealth' ? '确认结果' : '领取奖励';
   const hasCards = pendingReward.cardChoices.length > 0;
+  const potion = pendingReward.potionId ? potionById[pendingReward.potionId] : undefined;
+  const potionFull = Boolean(potion && potionsCount >= potionSlots);
   const canClaim = !claiming && (!hasCards || Boolean(selectedCardId));
 
   const handleClaim = () => {
@@ -109,7 +119,18 @@ export function RewardScreenView({
               {terminology.relic} {pendingReward.relicChoices.length}
             </span>
           ) : null}
+          {potion ? (
+            <span className="pile-chip">
+              {settings.mode === 'stealth' ? '补剂' : '药水'}: {settings.mode === 'stealth' ? potion.lowProfileName : potion.name}
+            </span>
+          ) : null}
         </div>
+
+        {potionFull ? (
+          <p className="settings-note">
+            {settings.mode === 'stealth' ? '补剂栏已满，无法领取新的补剂。' : '药水栏已满，无法领取新的药水。'}
+          </p>
+        ) : null}
 
         {hasCards ? (
           <div>

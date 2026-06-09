@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { warriorCardById } from '../../game/data/cards/warrior';
+import { getEffectiveCardDefinition } from '../../game/engine/cardUpgrades';
 import type { CardInstance, CombatState, GameMode } from '../../game/types';
 import { getTerminology } from '../terminology/terminology';
 
@@ -45,7 +45,7 @@ export function PileInfo({ combat, mode = 'normal' }: PileInfoProps) {
           {selectedCards.length > 0 ? (
             <ul className="pile-card-list">
               {selectedCards.map((cardInstance) => {
-                const card = warriorCardById[cardInstance.definitionId];
+                const card = getEffectiveCardDefinition(cardInstance);
                 const name = mode === 'stealth' ? card.lowProfileName : card.name;
                 const description = mode === 'stealth' ? card.lowProfileDescription : card.description;
                 return (
@@ -61,7 +61,7 @@ export function PileInfo({ combat, mode = 'normal' }: PileInfoProps) {
             </ul>
           ) : (
             <p className="settings-note">
-              {mode === 'stealth' ? '暂无操作项。' : '暂无卡牌。'}
+              {mode === 'stealth' ? '无操作项' : '无卡牌'}
             </p>
           )}
         </section>

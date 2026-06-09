@@ -3,7 +3,10 @@ import { trainingEnemyById } from '../data/enemies/training';
 import { relics } from '../data/relics/relics';
 import type { CombatStartSnapshot, CombatState, MapNode, RelicId, RunState, RunStatus, RunSummary } from '../types';
 import { isCombatWon, startCombat, startRun } from './combat';
+import { getBaseCardDefinition, upgradeCardInstance } from './cardUpgrades';
+import { createRewardCardInstance } from './deck';
 import { canEnterNode, createBranchingMap, isBossNode, isRunComplete, markNodeCompleted } from './map';
+import { createPotionInstance } from './potions';
 import { generateNodeReward } from './rewards';
 
 export function startNewRun(seed: string | number = Date.now()): RunState {
@@ -20,6 +23,8 @@ export function startNewRun(seed: string | number = Date.now()): RunState {
     completedNodeIds: [],
     act: 1,
     floor: 1,
+    potions: [],
+    potionSlots: 3,
     currentCombat: undefined,
     combatStartSnapshot: undefined,
     lastRestResult: undefined,
@@ -145,6 +150,7 @@ export function resolveReward(
       relicPool.has(selectedRelic as RelicId) &&
       !run.relics.includes(selectedRelic as RelicId),
   );
+  const shouldAddPotion = Boolean(reward.potionId && run.potions.length < run.potionSlots);
 
   const map = markNodeCompleted(run.map, reward.sourceNodeId);
   const nextRun: RunState = {
@@ -153,8 +159,16 @@ export function resolveReward(
       ...run.character,
       gold: run.character.gold + reward.gold,
     },
-    deck: shouldAddCard ? [...run.deck, selectedCardId!] : run.deck,
+    deck: shouldAddCard
+      ? [...run.deck, createRewardCardInstance(selectedCardId!, `${run.id}-reward-${run.deck.length}`)]
+      : run.deck,
     relics: shouldAddRelic ? [...run.relics, selectedRelic as RelicId] : run.relics,
+    potions: shouldAddPotion
+      ? [
+          ...run.potions,
+          createPotionInstance(reward.potionId!, `${run.id}-potion-${run.potions.length}-${reward.sourceNodeId}`),
+        ]
+      : run.potions,
     combatsWon: node.type === 'rest' ? run.combatsWon : run.combatsWon + 1,
     map,
     currentNodeId: undefined,
@@ -206,11 +220,54 @@ export function restAtNode(run: RunState): RunState {
     currentScreen: 'rest',
     lastRestResult: {
       nodeId: node.id,
+      action: 'rest',
       beforeHp,
       afterHp: nextHp,
       healed: nextHp - beforeHp,
     },
     runLog: [...run.runLog, '完成整理节点'],
+  };
+}
+
+export function upgradeCardAtNode(run: RunState, cardInstanceId: string): RunState {
+  if (!run.currentNodeId) {
+    return run;
+  }
+
+  const node = run.map.find((candidate) => candidate.id === run.currentNodeId);
+  if (!node || node.type !== 'rest' || node.status === 'completed') {
+    return run;
+  }
+
+  const targetCard = run.deck.find((card) => card.instanceId === cardInstanceId);
+  if (!targetCard || targetCard.upgraded) {
+    return run;
+  }
+
+  const definition = getBaseCardDefinition(targetCard.definitionId);
+  const map = markNodeCompleted(run.map, node.id);
+
+  return {
+    ...run,
+    deck: run.deck.map((card) =>
+      card.instanceId === cardInstanceId ? upgradeCardInstance(card) : card,
+    ),
+    map,
+    currentNodeId: node.id,
+    completedNodeIds: appendUnique(run.completedNodeIds, node.id),
+    currentScreen: 'rest',
+    lastRestResult: {
+      nodeId: node.id,
+      action: 'upgrade',
+      beforeHp: run.character.hp,
+      afterHp: run.character.hp,
+      healed: 0,
+      upgradedCardInstanceId: cardInstanceId,
+      upgradedCardDefinitionId: targetCard.definitionId,
+      upgradedCardName: definition.name,
+      upgradedLowProfileName: definition.lowProfileName,
+    },
+    runLog: [...run.runLog, `${definition.name} 已升级`],
   };
 }
 
@@ -280,6 +337,7 @@ export function restartCombatFromSnapshot(run: RunState): RunState {
       hp: snapshot.characterHp,
     },
     map: snapshot.map,
+    potions: snapshot.potions,
     currentNodeId: snapshot.nodeId,
     currentScreen: 'combat',
     floor: snapshot.floor,
@@ -324,15 +382,15 @@ function chooseEnemyGroup(run: RunState, node: MapNode) {
 
 function markNodeCurrent(map: MapNode[], nodeId: string): MapNode[] {
   const selected = map.find((node) => node.id === nodeId);
-  const selectedFloor = selected?.floor ?? selected?.index;
+  const selectedLayer = selected?.layer ?? selected?.floor ?? selected?.index;
 
   return map.map((node) => {
     if (node.id === nodeId) {
       return { ...node, status: 'current' };
     }
 
-    const nodeFloor = node.floor ?? node.index;
-    if (nodeFloor === selectedFloor && node.status === 'available') {
+    const nodeLayer = node.layer ?? node.floor ?? node.index;
+    if (nodeLayer === selectedLayer && node.status === 'available') {
       return { ...node, status: 'locked' };
     }
 
@@ -352,6 +410,7 @@ function createCombatStartSnapshot(
     rngSeed: run.rngSeed,
     characterHp: combat.player.hp,
     map: run.map,
+    potions: run.potions,
     combat,
   };
 }

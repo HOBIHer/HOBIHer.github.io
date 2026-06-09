@@ -70,7 +70,7 @@ describe('milestone 5 rewards and run flow', () => {
     run = resolveReward(run, cardId);
     const nextNodes = run.map.filter((node) => firstNode.nextNodeIds?.includes(node.id));
 
-    expect(run.deck).toContain(cardId);
+    expect(run.deck.some((card) => card.definitionId === cardId)).toBe(true);
     expect(run.character.gold).toBe(gold);
     expect(run.character.gold).toBe(goldAfterClaim);
     expect(run.deck).toHaveLength(deckSize);
@@ -90,7 +90,7 @@ describe('milestone 5 rewards and run flow', () => {
 
     run = skipCardReward(run);
 
-    expect(run.deck).not.toContain(skippedCard);
+    expect(run.deck.some((card) => card.definitionId === skippedCard)).toBe(false);
     expect(run.character.gold).toBe(gold);
     expect(run.map.find((node) => node.id === firstNode.id)?.status).toBe('completed');
   });

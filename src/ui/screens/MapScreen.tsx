@@ -86,12 +86,12 @@ export function MapScreenView({
 
       <section className="map-track map-track-branching" aria-label={terminology.map}>
         {mapFloors.map((floorNodes, floorIndex) => {
-          const floor = floorNodes[0]?.floor ?? floorIndex + 1;
+          const layer = floorNodes[0]?.layer ?? floorIndex;
 
           return (
-            <div className="map-floor-wrap" key={floor}>
+            <div className="map-floor-wrap" key={layer}>
               <div className="map-floor-label">
-                {settings.mode === 'stealth' ? `阶段 ${floor}` : `Floor ${floor}`}
+                {settings.mode === 'stealth' ? `层级 ${layer + 1}` : `Layer ${layer + 1}`}
               </div>
               <div className="map-floor">
                 {floorNodes.map((node) => {
@@ -131,11 +131,11 @@ function groupMapByFloor(map: RunState['map']): RunState['map'][] {
   const groups = new Map<number, RunState['map']>();
 
   for (const node of map) {
-    const floor = node.floor ?? node.index + 1;
-    groups.set(floor, [...(groups.get(floor) ?? []), node]);
+    const layer = node.layer ?? (node.floor ?? node.index + 1) - 1;
+    groups.set(layer, [...(groups.get(layer) ?? []), node]);
   }
 
   return [...groups.entries()]
-    .sort(([leftFloor], [rightFloor]) => leftFloor - rightFloor)
-    .map(([, nodes]) => nodes.sort((left, right) => left.index - right.index));
+    .sort(([leftLayer], [rightLayer]) => rightLayer - leftLayer)
+    .map(([, nodes]) => nodes.sort((left, right) => left.x - right.x || left.index - right.index));
 }

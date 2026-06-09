@@ -9,6 +9,7 @@ function forceHand(combat: CombatState, definitionIds: string[]): CombatState {
     hand: definitionIds.map((definitionId, index) => ({
       definitionId,
       instanceId: `forced-${definitionId}-${index}`,
+      upgraded: false,
     })),
   };
 }
@@ -43,7 +44,7 @@ describe('relic triggers', () => {
       ...combat,
       energy: 1,
       drawPile: [],
-      discardPile: [{ definitionId: 'short-blade-advance', instanceId: 'discarded-attack' }],
+      discardPile: [{ definitionId: 'short-blade-advance', instanceId: 'discarded-attack', upgraded: false }],
       exhaustPile: [],
     };
 
