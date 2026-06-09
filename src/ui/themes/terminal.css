@@ -1,0 +1,13 @@
+.theme-terminal {
+  --app-text: #d6e8dd;
+  --app-muted: #9ab2a4;
+  --app-panel: rgba(10, 17, 15, 0.92);
+  --app-panel-strong: #101a18;
+  --app-border: #2a4038;
+  --app-accent: #8bd6a3;
+  --app-accent-text: #07100c;
+  --app-chip: #152820;
+  --app-card-attack: #1f2119;
+  --app-card-skill: #13251f;
+  --app-card-power: #182222;
+}

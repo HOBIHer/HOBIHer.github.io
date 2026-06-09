@@ -1,0 +1,13 @@
+.theme-dashboard {
+  --app-text: #17212d;
+  --app-muted: #5f6f7f;
+  --app-panel: rgba(248, 251, 252, 0.92);
+  --app-panel-strong: #f9fbfc;
+  --app-border: #c7d3dc;
+  --app-accent: #28706d;
+  --app-accent-text: #ffffff;
+  --app-chip: #e0edf0;
+  --app-card-attack: #f9f4ee;
+  --app-card-skill: #eef8f8;
+  --app-card-power: #f3f6fa;
+}

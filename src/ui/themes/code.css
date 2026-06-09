@@ -1,0 +1,13 @@
+.theme-code {
+  --app-text: #dbe5ea;
+  --app-muted: #9fb1bc;
+  --app-panel: rgba(21, 28, 35, 0.9);
+  --app-panel-strong: #17202a;
+  --app-border: #354655;
+  --app-accent: #5fa78d;
+  --app-accent-text: #071411;
+  --app-chip: #203241;
+  --app-card-attack: #2a2424;
+  --app-card-skill: #1e2e32;
+  --app-card-power: #242a35;
+}

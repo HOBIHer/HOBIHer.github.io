@@ -1,0 +1,13 @@
+.theme-normal {
+  --app-text: #182033;
+  --app-muted: #607085;
+  --app-panel: rgba(255, 255, 255, 0.9);
+  --app-panel-strong: #fbfcfd;
+  --app-border: #ccd4dc;
+  --app-accent: #b14d3a;
+  --app-accent-text: #ffffff;
+  --app-chip: #e4ebf2;
+  --app-card-attack: #fff4ef;
+  --app-card-skill: #f5fbff;
+  --app-card-power: #f8f6ff;
+}

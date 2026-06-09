@@ -1,0 +1,13 @@
+.theme-meeting {
+  --app-text: #222833;
+  --app-muted: #66707d;
+  --app-panel: rgba(255, 255, 255, 0.92);
+  --app-panel-strong: #fafbfd;
+  --app-border: #d0d7df;
+  --app-accent: #6a6f55;
+  --app-accent-text: #ffffff;
+  --app-chip: #ecefe7;
+  --app-card-attack: #fff7f1;
+  --app-card-skill: #f4f8f5;
+  --app-card-power: #f6f6fa;
+}
