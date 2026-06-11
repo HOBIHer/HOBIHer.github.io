@@ -36,6 +36,8 @@ export function createCardInstances(cards: Array<string | CardInstance>, prefix:
         costOverride: typeof card === 'string' ? undefined : card.costOverride,
         exhaustOnPlay: typeof card === 'string' ? undefined : card.exhaustOnPlay,
         damageBonus: typeof card === 'string' ? undefined : card.damageBonus,
+        replay: typeof card === 'string' ? undefined : card.replay,
+        remainingCombats: typeof card === 'string' ? undefined : card.remainingCombats,
       };
   });
 }

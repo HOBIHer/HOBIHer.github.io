@@ -1,6 +1,6 @@
 # Content Catalog
 
-Updated on 2026-06-09 for v1.3.0.
+Updated on 2026-06-11 for v1.6.0.
 
 All content below is original project content. The low-profile names are neutral labels used by stealth mode and do not change rules.
 
@@ -45,7 +45,7 @@ All content below is original project content. The low-profile names are neutral
 
 ### v1.3.0 Card Batch
 
-The v1.3.0 batch adds 83 implemented local cards for Iron Oath. Rows 27, 60, 72, and 75 from `docs/content_requests/CARD_BATCH_1.3.0.md` are blocked because they require another player/ally model or undefined `Giant Rock`/`Plating` behavior.
+The v1.3.0 batch now has 84 implemented local cards for Iron Oath. Row 72 was unblocked in v1.5.0 by the new `Plating` mechanic. Rows 27, 60, and 75 from `docs/content_requests/CARD_BATCH_1.3.0.md` remain blocked because they require another player/ally model or undefined `Giant Rock` behavior.
 
 | ID | Name | Low-Profile Name | Type | Rarity | Short Effect |
 | --- | --- | --- | --- | --- | --- |
@@ -132,6 +132,7 @@ The v1.3.0 batch adds 83 implemented local cards for Iron Oath. Rows 27, 60, 72,
 | `v130-crushing-mark` | 压痕标记 | 降效暴露 | attack | uncommon | Deal damage and apply weak plus vulnerable. |
 | `v130-expose-draw-engine` | 揭伤卷轴 | 暴露补项 | power | uncommon | Draw whenever you apply vulnerable. |
 | `v130-x-wide-storm` | 横潮 X 式 | 全域 X 推 | attack | uncommon | X-cost all-enemy repeated damage. |
+| `v150-plated-oath` | 镀誓 | 周期缓冲协议 | power | uncommon | Gain Plating. |
 
 ## v1.3.0 Mechanics Added
 
@@ -186,6 +187,7 @@ Potions are local one-use combat consumables. Runs have 3 potion slots.
 | `cinder_notary` | 余烬公证人 | 确认事项 | elite | Attack, block plus artifact, then attack plus bleed. |
 | `bell_tower_guardian` | 钟塔守卫 | 最终议题 | boss | Mixed attack/block, vulnerable, strength/block, heavy attack, charge. |
 | `tide_archive_prime` | 潮档主机 | 终局档案 | boss | Attack plus vulnerable, block, weak, heavy attack, strength/block. |
+| `oath_mirror_warden` | 誓镜看守 | 终局复核 | boss | Attack, block plus strength, weak, heavy frail attack, block. |
 
 ## Enemy Groups
 
@@ -205,6 +207,7 @@ Potions are local one-use combat consumables. Runs have 3 potion slots.
 | `cinder_notary_elite` | 余烬公证人 | 确认事项 | elite | `cinder_notary` | 2 |
 | `bell_tower_guardian_boss` | 钟塔守卫 | 最终议题 | boss | `bell_tower_guardian` | 1 |
 | `tide_archive_prime_boss` | 潮档主机 | 终局档案 | boss | `tide_archive_prime` | 1 |
+| `oath_mirror_warden_boss` | 誓镜看守 | 终局复核 | boss | `oath_mirror_warden` | 1 |
 
 ## Relics
 
@@ -227,3 +230,180 @@ Potions are local one-use combat consumables. Runs have 3 potion slots.
 | `red-needle` | 赤针 | 赤针凭证 | rare | Combat start: gain 2 strength and 1 dexterity. |
 | `last-bell` | 末铃 | 完成凭证 | rare | Victory: heal 8. |
 | `quiet-ledger` | 静账册 | 静账凭证 | uncommon | First turn start: draw 1 and gain 1 energy. |
+## v1.4.0 Potion Batch
+
+Implemented rows from `docs/content_requests/potion_BATCH_1.4.0.md` use original ids and names. Rows requiring unresolved choice/event/token/class mechanics are blocked in `PROGRESS.md`.
+
+| ID | Name | Low-Profile Name | Rarity | Target | Short Effect |
+| --- | --- | --- | --- | --- | --- |
+| `v140-dimming-vapor` | 暗潮雾瓶 | 降载雾瓶 | rare | allEnemies | Enemy attacks deal 30% less damage for 4 enemy turns. |
+| `v140-field-refit-fluid` | 临场改装液 | 临场优化液 | uncommon | self | Upgrade all cards in hand for this combat. |
+| `v140-oath-mending-vial` | 余誓疗瓶 | 稳定修复瓶 | common | self | Iron Oath-only; heal 20% max HP. |
+| `v140-full-cycle-draught` | 全循环药剂 | 全量重排补剂 | rare | self | Shuffle hand, draw, and discard into draw pile; draw 5. |
+| `v140-long-ledger-ink` | 长账墨水 | 连续补充墨水 | uncommon | self | Draw 1; next 3 turn starts draw 1 more. |
+| `v140-surge-notes` | 涌流便签 | 额度便签 | uncommon | self | Gain 1 energy and draw 2. |
+| `v140-reflex-salt` | 反射盐剂 | 响应盐剂 | common | self | Gain 2 dexterity. |
+| `v140-topdeck-warrant` | 顶牌令 | 顶部执行令 | rare | none | Play the top 3 draw-pile cards. |
+| `v140-echo-primer` | 回声引剂 | 复执引剂 | uncommon | self | Next card this turn resolves one extra time. |
+| `v140-energy-cache` | 能量匣 | 额度匣 | common | self | Gain 2 energy. |
+| `v140-restock-flask` | 补给烧瓶 | 栏位补给瓶 | rare | none | Fill all empty potion slots with random potions. |
+| `v140-splash-charge` | 碎浪雷瓶 | 广域冲击瓶 | common | allEnemies | Deal 10 damage to all enemies. |
+| `v140-second-heart-phial` | 第二心瓶 | 应急恢复瓶 | rare | none | Passive death ward; discard to restore to 30% max HP. |
+| `v140-impact-bottle` | 重击瓶 | 单点推进瓶 | common | enemy | Deal 20 damage. |
+| `v140-flash-strength` | 闪燃力剂 | 临时强化剂 | common | self | Gain 5 temporary strength this turn. |
+| `v140-block-tripler` | 三重护膜 | 三倍缓冲膜 | uncommon | self | Triple current block. |
+| `v140-marrow-growth-vial` | 骨线增幅瓶 | 上限增幅瓶 | rare | self | Gain 5 max HP and 5 current HP. |
+| `v140-balanced-tonic` | 均衡药剂 | 双项补剂 | uncommon | self | Gain 1 strength and 1 dexterity. |
+| `v140-overdrive-lens` | 过载透镜 | 三倍推进镜 | rare | self | Next attack card deals 3x damage. |
+| `v140-thorn-brine` | 刺盐瓶 | 反击盐瓶 | uncommon | self | Gain 3 thorns. |
+| `v140-discard-retrieval-vial` | 回收小瓶 | 回收凭证瓶 | rare | self | Return 1 random discard card to hand; it costs 0. |
+| `v140-tri-form-solution` | 三相溶液 | 三类补充液 | rare | self | Add random attack, skill, and power to hand; each costs 0 and exhausts. |
+| `v140-exposure-fog` | 显影雾瓶 | 暴露雾瓶 | uncommon | allEnemies | Apply 1 weak and 1 vulnerable to all enemies. |
+| `v140-corrosion-vial` | 蚀刻滴瓶 | 持续流失瓶 | uncommon | allEnemies | Enemies lose 9 HP at each of their turn ends. |
+| `v140-stable-reserve` | 稳定储能瓶 | 连续额度瓶 | uncommon | self | Gain 1 energy; next 3 turn starts gain 1 energy. |
+| `v140-regen-draught` | 复苏药剂 | 持续修复剂 | uncommon | self | Gain 5 regen. |
+| `v140-mass-fatigue-vial` | 群体疲惫瓶 | 广域降载瓶 | rare | allEnemies | All enemies lose 7 strength this turn. |
+| `v140-delayed-guard-vial` | 延迟护瓶 | 延迟缓冲瓶 | rare | self | Gain 10 block now and 10 block next turn start. |
+| `v140-chaos-draw-vial` | 乱序抽牌瓶 | 随机费用补充瓶 | rare | self | Draw 7 and randomize hand costs for this combat turn. |
+| `v140-flash-dexterity` | 闪避盐剂 | 临时响应剂 | common | self | Gain 5 temporary dexterity this turn. |
+| `v140-retention-seal` | 留牌封蜡 | 保留凭证 | uncommon | self | Retain hand for 2 turn cleanups. |
+| `v140-exposure-ampoule` | 暴露安瓿 | 风险暴露剂 | common | enemy | Apply 3 vulnerable. |
+| `v140-dulling-ampoule` | 钝化安瓿 | 降效安瓿 | common | enemy | Apply 3 weak. |
+
+## v1.4.0 Run Content
+
+- Starter-only relic: `afterglow-charm` / `余息护符` / `恢复凭证`; on victory, heal 3 HP. It is in the relic registry and excluded from ordinary relic rewards when unowned.
+- Ascension burden card: `v140-ascension-burden` / `沉重负誓` / `额外负担项`; ascension 5 adds it to the starting deck.
+- Node type: `shop` / `商店` / `资源面板`; inventories contain deterministic card, relic, and potion exchange items.
+- Progression system: ascension levels 0-10, saved locally and stackable by level.
+
+## v1.5.0 Mechanisms and Unblocked Content
+
+| ID | Category | Short Effect |
+| --- | --- | --- |
+| `plating` | status | End of player turn: gain block equal to stacks. Player turn start: stacks decrease by 1. |
+| `buffer` | status | Prevent the next HP-loss event, then consume 1 stack. |
+| `ritual` | status | End of player turn: gain strength equal to stacks. |
+| `Replay` | card modifier | A card resolves its effects one extra time per Replay stack after the normal play. |
+| `v150-plating-vial` | potion | Gain 7 Plating. |
+| `v150-buffer-vial` | potion | Gain 1 Buffer. |
+| `v150-ritual-vial` | potion | Gain 1 Ritual. |
+| `v150-replay-etching` | potion | Iron Oath-only; cards matching Strike-like names gain Replay 1 for the combat. |
+| `v150-plated-oath` | card | Previously blocked v1.3.0 Plating card; gain Plating, upgrade increases stacks. |
+
+## Curse Cards
+
+Curse cards use `type: 'curse'`, `rarity: 'curse'`, and are unplayable by default. They enter deck and combat piles normally, can be removed by card-removal systems unless marked otherwise, and use low-profile labels as abnormal or constraint items.
+
+| ID | Name | Low-Profile Name | Trigger Summary |
+| --- | --- | --- | --- |
+| `curse-ascenders-bane` | 攀阶灾痕 | 进阶异常项 | Unplayable, starter ascension curse style burden. |
+| `curse-bad-luck` | 逆潮厄运 | 严重异常项 | In hand at turn end: lose HP. |
+| `curse-clumsy` | 笨拙回响 | 易散异常项 | Exhausts from hand at turn end. |
+| `curse-bell` | 钟缚诅印 | 固定约束项 | Unplayable and unremovable fixed curse. |
+| `curse-debt` | 欠账墨痕 | 额度异常项 | In hand at turn end: lose gold. |
+| `curse-decay` | 朽损裂纹 | 损耗异常项 | In hand at turn end: lose HP. |
+| `curse-doubt` | 疑云 | 降效异常项 | In hand at turn end: gain weak. |
+| `curse-enthralled` | 迷缚 | 优先约束项 | While in hand, non-curse cards are blocked until it is no longer the first hand card. |
+| `curse-folly` | 愚行誓痕 | 起始异常项 | Starts in hand. |
+| `curse-greed` | 贪墨 | 固定额度约束 | Unplayable curse used by event costs. |
+| `curse-guilty` | 负咎 | 临时异常项 | Temporary curse that expires after combat count. |
+| `curse-injury` | 旧伤 | 轻度异常项 | Unplayable inert curse. |
+| `curse-normality` | 常态枷锁 | 处理上限项 | While in hand, no more than 3 cards may be played each turn. |
+| `curse-poor-sleep` | 浅眠 | 保留异常项 | Retains in hand at end of turn. |
+| `curse-regret` | 悔痕 | 手牌压力项 | In hand at turn end: lose HP based on hand size. |
+| `curse-shame` | 羞愧 | 易扰异常项 | In hand at turn end: gain frail. |
+| `curse-spore-mind` | 孢念 | 可处理异常项 | Unplayable curse with standard pile behavior. |
+| `curse-writhe` | 扭曲 | 开局异常项 | Innate curse; appears in opening hand when present. |
+
+## v1.5.0 Events
+
+Major events start each act. Minor events appear on map event nodes. Event selection is seed deterministic and avoids repeats in a run where possible.
+
+| ID | Kind | Name | Low-Profile Name | Status |
+| --- | --- | --- | --- | --- |
+| `v150-act1-opening` | major | 潮始赐礼 | 起始事项 | Implemented with two positive choices and one cost choice. |
+| `v150-act2-recovery` | major | 第二幕潮间整备 | 第二阶段整备 | Implemented recovery event; request did not define a full act 2 choice pool. |
+| `v150-act3-recovery` | major | 第三幕潮顶整备 | 第三阶段整备 | Implemented recovery event; request did not define a full act 3 choice pool. |
+| `v150-brain-leech` | minor | 脑页水蛭 | 知识异常 | Blocked choices: requires secondary card/colorless selection UI. |
+| `v150-potion-courier` | minor | 瓶匣信使 | 补剂递送 | Implemented potion gain choices. |
+| `v150-ranwid` | minor | 潮隐长者 | 资源交换 | Implemented resource-for-relic choices, availability-gated. |
+| `v150-relic-trader` | minor | 遗物掮客 | 凭证换新 | Implemented relic exchange choice. |
+| `v150-stone-of-all-time` | minor | 万时石 | 长期整备项 | Implemented transform/curse style choices where supported. |
+| `v150-legends-true` | minor | 旧传成真 | 传闻事项 | Implemented safe exit choice; unsupported battle branches blocked. |
+| `v150-this-or-that` | minor | 此或彼 | 二选流程 | Implemented local gain/trade branches. |
+| `v150-wongo` | minor | 弯钩铺 | 资源柜台 | Implemented gold-for-random-effect branches. |
+| `v150-crystal-sphere` | minor | 晶球 | 预测事项 | Blocked choices: requires preview and outcome selection UI. |
+| `v150-doll-room` | minor | 偶室 | 凭证候选室 | Blocked choices: requested relic/object is undefined. |
+| `v150-cheese-room` | minor | 奶酪满屋 | 普通项仓 | Blocked choices: requires choose-card flow or undefined relic. |
+| `v150-self-help-book` | minor | 自助手册 | 优化手册 | Blocked choices: requested enchantment system is undefined. |
+| `v150-slippery-bridge` | minor | 湿滑桥 | 风险桥段 | Blocked choices: requires route preview/reroll flow. |
+| `v150-symbiote` | minor | 共生影 | 异常附加项 | Blocked choices: requires enchantment/choice transform flows. |
+| `v150-tea-master` | minor | 茶师 | 延迟流程师 | Blocked choices: requested delayed future reward/status objects are undefined. |
+| `v150-future-potions` | minor | 药水的未来？ | 补剂转化？ | Blocked choices: requested potion-rarity conversion table is undefined. |
+| `v150-merchant-question` | minor | 可疑商人 | 异常柜台 | Blocked choices: requested fake relic/fight flow is undefined. |
+| `v150-war-historian` | minor | 战史学者 Repy | 历史流程 | Blocked choices: requested key/relic state is undefined. |
+
+## v1.5.0 Run Content
+
+- Runs now have act 1, act 2, and act 3. Each act has its own deterministic 14-layer map with event nodes, multiple starts, branches, merges, rest/shop nodes, and one boss endpoint.
+- Act bosses are `bell_tower_guardian`, `tide_archive_prime`, and `oath_mirror_warden` by act.
+- Defeating act 1 or act 2 boss generates the next act map, heals to at least 90% max HP, and opens a major event before map play resumes.
+- Defeating act 3 boss records victory history and unlocks the next local ascension level.
+- Shop and event nodes store deterministic start snapshots. Returning to main menu and continuing restores the node-start state and the same inventory/event choices.
+
+## v1.6.0 Enemy Pool
+
+Enemy groups are now act-aware. Each group declares `act`, `nodeType`, enemy ids, and weight. Boss nodes select from the current act's boss group pool using the map seed and act.
+
+### v1.6.0 Enemy Mechanisms
+
+| ID | Category | Short Effect |
+| --- | --- | --- |
+| `initialStatuses` | enemy definition field | Applies typed starting statuses when combatants are created. |
+| enemy `damageRepeated` | enemy effect | Resolves enemy multi-hit attacks one hit at a time through normal combat math. |
+| `slippery` | status | Caps an attack hit's HP loss at 1 and consumes one stack when HP loss occurs. |
+| `intangible` | status | Caps an attack hit's HP loss at 1 while active. |
+| `stun` | enemy status | Enemy skips an action, consumes a stack, and advances its move cycle. |
+| `slumber` | enemy status | Enemy skips an action, consumes a stack, and advances its move cycle. |
+| generic HP-loss statuses | status rule | Statuses with `turnEndHpLossPerStack` lose HP at owner turn end through the shared status loop. |
+
+### Act 1 Enemies
+
+| Node Type | Enemy IDs |
+| --- | --- |
+| combat | `assassin_raider`, `axe_raider`, `brute_raider`, `crossbow_raider`, `tracker_raider`, `cubex_construct`, `eye_with_teeth`, `flyconid`, `fogmog`, `fuzzy_wurm_crawler`, `inklet`, `leaf_slime_m`, `leaf_slime_s`, `twig_slime_m`, `twig_slime_s`, `mawler`, `nibbit`, `shrinker_beetle`, `slithering_strangler`, `snapping_jaxfruit`, `vine_shambler` |
+| elite | `bygone_effigy`, `byrdonis`, `phrog_parasite`, `wriggler` |
+| boss | `vantom`, `ceremonial_beast`, `kin_priest`, `kin_follower` |
+
+### Act 2 Enemies
+
+| Node Type | Enemy IDs |
+| --- | --- |
+| combat | `bowlbug_egg`, `bowlbug_nectar`, `bowlbug_rock`, `bowlbug_silk`, `chomper`, `exoskeleton`, `hunter_killer`, `louse_progenitor`, `myte`, `ovicopter`, `tough_egg`, `slumbering_beetle`, `spiny_toad`, `the_obscura`, `thieving_hopper`, `tunneler` |
+| elite | `decimillipede_segment`, `entomancer`, `infested_prism` |
+| boss | `knowledge_demon`, `the_insatiable`, `kaiser_crab_crusher`, `kaiser_crab_rocket` |
+
+### Act 3 Enemies
+
+| Node Type | Enemy IDs |
+| --- | --- |
+| combat | `axebot`, `calcified_cultist`, `damp_cultist`, `devoted_sculptor`, `fabricator`, `guardbot`, `stabbot`, `zapbot`, `noisebot`, `frog_knight`, `globe_head`, `living_shield`, `owl_magistrate`, `scroll_of_biting`, `slimed_berserker`, `the_forgotten`, `the_lost`, `turret_operator`, `cubex_construct_overgrowth` |
+| elite | `flail_knight`, `spectral_knight`, `magi_knight`, `mecha_knight`, `soul_nexus` |
+| boss | `doormaker_door`, `doormaker`, `torch_head_amalgam`, `the_queen`, `test_subject_c10` |
+
+### v1.6.0 Enemy Groups
+
+| Act | Node Type | Group IDs |
+| --- | --- | --- |
+| 1 | combat | `a1_raider_patrol`, `a1_raider_brutes`, `a1_cubex_construct`, `a1_fogmog_eye`, `a1_spore_wurm`, `a1_inklet_beetle`, `a1_leaf_slimes`, `a1_twig_slimes`, `a1_mawler`, `a1_nibbits`, `a1_strangler`, `a1_growth_pair` |
+| 1 | elite | `a1_bygone_effigy_elite`, `a1_byrdonis_elite`, `a1_phrog_parasite_elite`, `a1_wriggler_elite` |
+| 1 | boss | `a1_vantom_boss`, `a1_ceremonial_beast_boss`, `a1_kin_boss` |
+| 2 | combat | `a2_bowlbug_pair`, `a2_bowlbug_threats`, `a2_chomper_pair`, `a2_exoskeleton_hunter`, `a2_louse_progenitor`, `a2_myte_pair`, `a2_ovicopter_eggs`, `a2_slumbering_beetle`, `a2_spiny_toad`, `a2_obscura`, `a2_thief_tunnel` |
+| 2 | elite | `a2_decimillipede_elite`, `a2_entomancer_elite`, `a2_infested_prism_elite` |
+| 2 | boss | `a2_knowledge_demon_boss`, `a2_insatiable_boss`, `a2_kaiser_crab_boss` |
+| 3 | combat | `a3_axebot_line`, `a3_cultists`, `a3_devoted_sculptor`, `a3_fabricator_bots`, `a3_frog_globe`, `a3_living_shield`, `a3_owl_magistrate`, `a3_biting_scrolls`, `a3_slimed_berserker`, `a3_forgotten_lost`, `a3_turret_cubex` |
+| 3 | elite | `a3_knight_trio_elite`, `a3_mecha_knight_elite`, `a3_soul_nexus_elite` |
+| 3 | boss | `a3_doormaker_boss`, `a3_queen_boss`, `a3_test_subject_c10_boss` |
+
+Unsupported exact enemy sub-mechanics from `docs/content_requests/Enemy_BATCH_1.6.0.md` are tracked in `PROGRESS.md`; the implemented batch keeps them data-driven as statuses or simple effects until the relevant broader systems exist.

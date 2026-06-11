@@ -1,20 +1,33 @@
 import { enemyGroupById, selectEnemyGroup } from '../data/enemies/groups';
 import { trainingEnemyById } from '../data/enemies/training';
 import { relics } from '../data/relics/relics';
-import type { CombatStartSnapshot, CombatState, MapNode, RelicId, RunState, RunStatus, RunSummary } from '../types';
+import type { ActNumber, AscensionLevel, CombatStartSnapshot, CombatState, MapNode, RelicId, RunState, RunStatus, RunSummary } from '../types';
+import {
+  getRestHealAmount,
+  getStartingPotionSlots,
+  hasAscension,
+} from './ascension';
 import { isCombatWon, startCombat, startRun } from './combat';
-import { getBaseCardDefinition, upgradeCardInstance } from './cardUpgrades';
+import { canUpgradeCardInstance, getBaseCardDefinition, getEffectiveCardDefinition, upgradeCardInstance } from './cardUpgrades';
 import { createRewardCardInstance } from './deck';
+import { createActStartEvent, enterEventNode, restartEventFromSnapshot } from './events';
 import { canEnterNode, createBranchingMap, isBossNode, isRunComplete, markNodeCompleted } from './map';
 import { createPotionInstance } from './potions';
 import { generateNodeReward } from './rewards';
+import { enterShopNode } from './shop';
 
-export function startNewRun(seed: string | number = Date.now()): RunState {
-  const run = startRun(seed);
-  const map = createBranchingMap(String(seed));
-
-  return {
+export function startNewRun(
+  seed: string | number = Date.now(),
+  ascensionLevel: AscensionLevel = 0,
+): RunState {
+  const run = startRun(seed, undefined, ascensionLevel);
+  const map = createBranchingMap(String(seed), ascensionLevel, 1);
+  const deck = hasAscension(ascensionLevel, 5)
+    ? [...run.deck, createRewardCardInstance('v140-ascension-burden', `${run.id}-ascension-burden`)]
+    : run.deck;
+  const runWithMap: RunState = {
     ...run,
+    deck,
     status: 'active',
     currentScreen: 'map',
     map,
@@ -24,10 +37,33 @@ export function startNewRun(seed: string | number = Date.now()): RunState {
     act: 1,
     floor: 1,
     potions: [],
-    potionSlots: 3,
+    potionSlots: getStartingPotionSlots(ascensionLevel),
     currentCombat: undefined,
     combatStartSnapshot: undefined,
+    currentShop: undefined,
+    currentEvent: undefined,
+    eventStartSnapshot: undefined,
+    shopStartSnapshot: undefined,
+    seenEventIds: [],
     lastRestResult: undefined,
+  };
+  const event = createActStartEvent(runWithMap, 1);
+
+  return {
+    ...runWithMap,
+    currentScreen: 'event',
+    currentEvent: event,
+    eventStartSnapshot: {
+      id: `${runWithMap.id}-act1-event-start`,
+      eventSeed: event.seed,
+      run: {
+        ...runWithMap,
+        currentScreen: 'event',
+        currentEvent: event,
+        eventStartSnapshot: undefined,
+        shopStartSnapshot: undefined,
+      },
+    },
   };
 }
 
@@ -60,8 +96,20 @@ export function enterMapNode(run: RunState, nodeId: string): RunState {
     };
   }
 
+  if (node.type === 'shop') {
+    return enterShopNode(runOnNode, node);
+  }
+
+  if (node.type === 'event') {
+    return enterEventNode(runOnNode, node);
+  }
+
   const group = chooseEnemyGroup(runOnNode, node);
-  const enemies = group.enemyIds.map((enemyId) => {
+  const enemyIds =
+    node.type === 'boss' && hasAscension(runOnNode.ascensionLevel, 10)
+      ? [...group.enemyIds, ...group.enemyIds]
+      : group.enemyIds;
+  const enemies = enemyIds.map((enemyId) => {
     const enemy = trainingEnemyById[enemyId];
     if (!enemy) {
       throw new Error(`Unknown enemy id in group ${group.id}: ${enemyId}`);
@@ -108,7 +156,7 @@ export function completeCombatNode(run: RunState): RunState {
   }
 
   const node = run.map.find((candidate) => candidate.id === run.currentNodeId);
-  if (!node || node.type === 'rest') {
+  if (!node || node.type === 'rest' || node.type === 'shop') {
     return run;
   }
 
@@ -153,7 +201,7 @@ export function resolveReward(
   const shouldAddPotion = Boolean(reward.potionId && run.potions.length < run.potionSlots);
 
   const map = markNodeCompleted(run.map, reward.sourceNodeId);
-  const nextRun: RunState = {
+  let nextRun: RunState = {
     ...run,
     character: {
       ...run.character,
@@ -178,9 +226,10 @@ export function resolveReward(
     combatStartSnapshot: undefined,
     lastRestResult: undefined,
   };
+  nextRun = removeExpiredCombatCurses(nextRun);
 
   if (isBossNode(node) || isRunComplete(map)) {
-    return completeRun(nextRun);
+    return nextRun.act >= 3 ? completeRun(nextRun) : startNextAct(nextRun);
   }
 
   return {
@@ -204,7 +253,7 @@ export function restAtNode(run: RunState): RunState {
   }
 
   const beforeHp = run.character.hp;
-  const healAmount = Math.max(1, Math.floor(run.character.maxHp * 0.3));
+    const healAmount = getRestHealAmount(run.character.maxHp, run.ascensionLevel);
   const nextHp = Math.min(run.character.maxHp, run.character.hp + healAmount);
   const map = markNodeCompleted(run.map, node.id);
 
@@ -240,17 +289,20 @@ export function upgradeCardAtNode(run: RunState, cardInstanceId: string): RunSta
   }
 
   const targetCard = run.deck.find((card) => card.instanceId === cardInstanceId);
-  if (!targetCard || targetCard.upgraded) {
+  if (!targetCard || !canUpgradeCardInstance(targetCard)) {
     return run;
   }
 
   const definition = getBaseCardDefinition(targetCard.definitionId);
+  const beforeDefinition = getBaseCardDefinition(targetCard.definitionId);
+  const upgradedCard = upgradeCardInstance(targetCard);
+  const upgradedDefinition = getEffectiveCardDefinition(upgradedCard);
   const map = markNodeCompleted(run.map, node.id);
 
   return {
     ...run,
     deck: run.deck.map((card) =>
-      card.instanceId === cardInstanceId ? upgradeCardInstance(card) : card,
+      card.instanceId === cardInstanceId ? upgradedCard : card,
     ),
     map,
     currentNodeId: node.id,
@@ -266,6 +318,12 @@ export function upgradeCardAtNode(run: RunState, cardInstanceId: string): RunSta
       upgradedCardDefinitionId: targetCard.definitionId,
       upgradedCardName: definition.name,
       upgradedLowProfileName: definition.lowProfileName,
+      upgradeBeforeDescription: beforeDefinition.description,
+      upgradeAfterDescription: upgradedDefinition.description,
+      upgradeBeforeLowProfileDescription: beforeDefinition.lowProfileDescription,
+      upgradeAfterLowProfileDescription: upgradedDefinition.lowProfileDescription,
+      upgradeBeforeCost: beforeDefinition.cost,
+      upgradeAfterCost: upgradedDefinition.cost,
     },
     runLog: [...run.runLog, `${definition.name} 已升级`],
   };
@@ -346,6 +404,13 @@ export function restartCombatFromSnapshot(run: RunState): RunState {
   };
 }
 
+export function restartShopFromSnapshot(run: RunState): RunState {
+  const snapshot = run.shopStartSnapshot;
+  return snapshot ? snapshot.run : run;
+}
+
+export { restartEventFromSnapshot };
+
 export function createRunSummary(
   run: RunState,
   status: Exclude<RunStatus, 'active'>,
@@ -362,6 +427,7 @@ export function createRunSummary(
     gold: run.character.gold,
     deckSize: run.deck.length,
     relicCount: run.relics.length,
+    ascensionLevel: run.ascensionLevel,
     completedAt,
     turnsTaken: run.currentCombat?.turn,
     lowProfileTitle: status === 'victory' ? '流程完成' : '流程中止',
@@ -369,15 +435,78 @@ export function createRunSummary(
 }
 
 function chooseEnemyGroup(run: RunState, node: MapNode) {
-  if (node.type === 'rest') {
-    throw new Error('Rest nodes do not have enemy groups.');
+  if (node.type === 'rest' || node.type === 'shop' || node.type === 'event') {
+    throw new Error('Non-combat nodes do not have enemy groups.');
   }
 
   if (node.enemyGroupId && enemyGroupById[node.enemyGroupId]) {
-    return enemyGroupById[node.enemyGroupId];
+    const group = enemyGroupById[node.enemyGroupId];
+    if (group.act === getRunAct(run) && group.nodeType === node.type) {
+      return group;
+    }
   }
 
-  return selectEnemyGroup(node.type, `${run.seed}:${run.floor}:${node.id}`);
+  return selectEnemyGroup(node.type, `${run.seed}:${run.act}:${run.floor}:${node.id}`, getRunAct(run));
+}
+
+function startNextAct(run: RunState): RunState {
+  const nextAct = run.act + 1;
+  const map = createBranchingMap(`${run.seed}:act:${nextAct}`, run.ascensionLevel, nextAct);
+  const targetHp = Math.ceil(run.character.maxHp * 0.9);
+  const runAtActStart: RunState = {
+    ...run,
+    act: nextAct,
+    floor: 1,
+    map,
+    currentNodeId: undefined,
+    currentCombat: undefined,
+    currentShop: undefined,
+    pendingReward: undefined,
+    combatStartSnapshot: undefined,
+    shopStartSnapshot: undefined,
+    eventStartSnapshot: undefined,
+    completedNodeIds: [],
+    character: {
+      ...run.character,
+      hp: Math.min(run.character.maxHp, Math.max(run.character.hp, targetHp)),
+    },
+  };
+  const event = createActStartEvent(runAtActStart, nextAct);
+  return {
+    ...runAtActStart,
+    currentScreen: 'event',
+    currentEvent: event,
+    eventStartSnapshot: {
+      id: `${run.id}-act${nextAct}-event-start`,
+      eventSeed: event.seed,
+      run: {
+        ...runAtActStart,
+        currentScreen: 'event',
+        currentEvent: event,
+        eventStartSnapshot: undefined,
+      },
+    },
+    runLog: [...run.runLog, `进入第 ${nextAct} 幕。`],
+  };
+}
+
+function removeExpiredCombatCurses(run: RunState): RunState {
+  let removed = 0;
+  const deck = run.deck
+    .map((card) =>
+      typeof card.remainingCombats === 'number'
+        ? { ...card, remainingCombats: card.remainingCombats - 1 }
+        : card,
+    )
+    .filter((card) => {
+      const keep = typeof card.remainingCombats !== 'number' || card.remainingCombats > 0;
+      if (!keep) {
+        removed += 1;
+      }
+      return keep;
+    });
+
+  return removed > 0 ? { ...run, deck, runLog: [...run.runLog, `自动移除 ${removed} 张临时诅咒。`] } : run;
 }
 
 function markNodeCurrent(map: MapNode[], nodeId: string): MapNode[] {
@@ -417,4 +546,16 @@ function createCombatStartSnapshot(
 
 function appendUnique<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values : [...values, value];
+}
+
+function getRunAct(run: RunState): ActNumber {
+  if (run.act <= 1) {
+    return 1;
+  }
+
+  if (run.act === 2) {
+    return 2;
+  }
+
+  return 3;
 }

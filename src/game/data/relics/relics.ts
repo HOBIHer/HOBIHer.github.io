@@ -2,6 +2,21 @@ import type { RelicDefinition } from '../../types';
 
 export const relics: RelicDefinition[] = [
   {
+    id: 'afterglow-charm',
+    name: '余息护符',
+    lowProfileName: '恢复凭证',
+    rarity: 'common',
+    starter: true,
+    description: '战斗胜利时回复 3 点生命。',
+    lowProfileDescription: '流程节点完成时回复 3 点稳定度。',
+    triggers: [
+      {
+        hook: 'onVictory',
+        effects: [{ type: 'heal', amount: 3 }],
+      },
+    ],
+  },
+  {
     id: 'old-copper-clasp',
     name: '旧铜扣',
     lowProfileName: '旧扣凭证',

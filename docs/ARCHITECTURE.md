@@ -196,3 +196,29 @@ Engine tests should cover:
 - Save/load serialization compatibility.
 
 UI tests can be narrower early on, focused on smoke tests and critical user flows.
+
+## v1.4.0 Architecture Notes
+
+Updated on 2026-06-10.
+
+- `src/game/engine/ascension.ts` owns ascension constants, clamp/unlock helpers, and restriction math for potion slots, rest healing, gold, shop remove price, enemy HP, and enemy damage.
+- `src/game/engine/shop.ts` owns deterministic shop inventory generation, item purchase rules, sold flags, gold mutation, potion-slot safety, and shop-node completion.
+- `src/game/engine/potions.ts` owns potion resolution and passive death-ward handling. Potion definitions remain data-only in `src/game/data/potions/potions.ts`.
+- `src/game/engine/map.ts` owns the deterministic 14-layer DAG and node unlocking rules. `shop` is a map node type, not a UI-only route.
+- `src/game/store/useGameStore.ts` bridges UI commands to ascension, shop, run, combat, reward, rest, potion, and persistence operations.
+- `src/adapters/storageAdapter.ts` remains the only browser-storage boundary for active run, settings, run history, and ascension progress. Save schema is versioned as v4.
+- `src/ui/screens/ShopScreen.tsx` renders shop state and dispatches store actions; it does not calculate prices, inventory, or purchase results.
+
+## v1.5.0 Architecture Notes
+
+Updated on 2026-06-10.
+
+- `src/game/engine/events.ts` owns deterministic major/minor event selection, choice availability, event effect resolution, event-node completion, event logs, and event-start snapshot restart.
+- `src/game/data/events/events.ts` owns event definitions, normal and low-profile event text, choice text, and blocked-choice reasons. Unsupported request rows are represented as blocked data, not UI logic.
+- `src/game/data/cards/curses.ts` owns curse card definitions. Curse behavior is expressed through typed card fields and curse triggers; combat timing is resolved in `src/game/engine/effects.ts`.
+- `src/game/engine/run.ts` now coordinates three-act progression, act-start major events, act transition healing, act-specific map generation, boss victory routing, and deterministic shop/event restart helpers.
+- `src/game/engine/map.ts` still owns route generation and node progression. `event` is now a map node type alongside combat, elite, rest, shop, and boss.
+- `src/game/engine/shop.ts` stores shop-start snapshots when entering shop nodes; the store uses those snapshots only for return-to-menu deterministic continue.
+- `src/game/store/useGameStore.ts` bridges EventScreen, ShopScreen, combat, rewards, rest, save/load, and menu return. It does not implement event effects or shop purchase rules.
+- `src/adapters/storageAdapter.ts` normalizes save schema v5 with event state, seen event ids, event/shop start snapshots, curse card fields, Replay modifiers, and curse combat stats while preserving legacy read fallback.
+- `src/ui/screens/EventScreen.tsx` renders current event state and dispatches choice ids. It does not apply event effects, mutate deck/gold/HP directly, or choose random outcomes.

@@ -642,7 +642,6 @@ Status: Completed.
 
 - Row 27: requires "another player" block transfer, which conflicts with the single-player product spec.
 - Row 60: references `Giant Rock` / `Giant Rock+` without defining token cost, type, or effect.
-- Row 72: references `Plating` without defining its rules.
 - Row 75: requires ally damage reduction, which conflicts with the current single-player combat model.
 
 ## Verification Commands
@@ -663,4 +662,288 @@ npm run build
 ## Product-Spec Concerns
 
 - No networking, account, telemetry, ads, cloud sync, enemies, relics, map nodes, or events were added.
-- Four rows were blocked instead of implemented because they conflict with the current single-player model or omit required mechanic definitions.
+- Three rows remain blocked because they conflict with the current single-player model or still omit required mechanic definitions. Row 72 was implemented in v1.5.0 after `Plating` was defined.
+
+## v1.4.0: Potion Batch + Ascension + Map + Shop Update
+
+Status: Completed.
+
+## Completed
+
+- Parsed `docs/content_requests/potion_BATCH_1.4.0.md` and implemented all rows that fit the current local single-player engine without new choice/event/token/class systems.
+- Added 33 implemented potion definitions with complete ids, original names, low-profile names, rarity, targets, descriptions, low-profile descriptions, and typed effects.
+- Expanded potion effect support for:
+  - percent max-HP healing
+  - block multiplication
+  - energy gain
+  - max HP gain
+  - direct enemy/all-enemy damage
+  - all-enemy status application
+  - temporary strength/dexterity
+  - hand upgrades
+  - shuffle-all-into-draw plus draw
+  - play top draw-pile cards
+  - refill empty potion slots
+  - passive death ward
+  - discard-to-hand with temporary cost override
+  - random generated cards by type
+  - randomized hand costs
+  - hand retention
+- Added statuses/mechanics for `enemyAttackDown30`, `startTurnDraw`, `startTurnEnergyNextTurns`, `startTurnBlock`, `corrosiveLeak`, `temporaryDexterity`, `retainHand`, `nextCardExtraPlay`, and `nextAttackDamageMultiplier`.
+- Added ascension levels 0-10 with local progress persistence and stacked restrictions.
+- Added deterministic 14-layer Act 1 DAG map with multiple starts, branches, merges, re-branches, combat, elite, rest, shop, and a unique final boss endpoint.
+- Added deterministic shop inventory generation and `ShopScreen` for card, relic, and potion purchases.
+- Added starter-only relic `afterglow-charm` / `余息护符` / `恢复凭证`; victory heals 3 HP and ordinary relic rewards exclude starter-only relics.
+- Added ascension 5 burden card `v140-ascension-burden`.
+- Updated save schema to v4 and added versioned ascension progress persistence.
+- Updated `docs/MECHANICS.md`, `docs/CONTENT_CATALOG.md`, `docs/MILESTONES.md`, `docs/ARCHITECTURE.md`, `CHANGELOG.md`, and `PROGRESS.md`.
+- Added `src/tests/v140Systems.test.ts` and updated map/run tests for the expanded route.
+
+## Blocked Potion Rows
+
+- Row 1: requires choosing any number of cards from hand to exhaust; no choose-any hand-selection UI exists yet.
+- Rows 2, 9, 39, and 44: require choosing 1 of 3 random card offers during potion use; combat-time choice UI is not available.
+- Row 10: references the absent `Regent` class and upgraded colorless-card hand generation.
+- Row 14: requires selecting a card from the draw pile; draw-pile selection UI is not available.
+- Row 23: event potion includes all-player damage and merchant throwing for gold; event and merchant targeting systems do not exist.
+- Row 26: requires discarding any number of selected hand cards and drawing that many; choose-any discard UI is not available.
+- Row 28: event row has no rarity and requires event-only hand exhaustion/draw behavior.
+- Row 30: references absent `Regent` class and undefined `Forge`.
+- Row 37: token row lacks owner/reward fields.
+- Row 51: requires choosing a hand card to make free for the combat; hand-card choice UI is not available.
+
+## Naming Notes
+
+- The request referenced `破誓者`; the repo currently has only the default `iron-oath` / Iron Oath class. Per instruction, no new class was added. Class-specific potion/relic behavior was attached to the existing default class and this naming difference is recorded here.
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-10 with 19 test files and 110 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-10 with TypeScript checking and Vite production build.
+
+## Product-Spec Concerns
+
+- No network gameplay, account login, cloud sync, telemetry, analytics, ads, remote feature flags, remote game data, commercial APIs, or scraping were added.
+- Blocked potion rows were left unimplemented instead of approximated because they require missing UI/system support or still-undefined mechanics. Rows 29, 33, 34, and 46 were implemented in v1.5.0 after `Plating`, `Buffer`, `Ritual`, and `Replay` were defined.
+
+## v1.5.0: Mechanism Completion + Curses + Three Acts + Events
+
+Status: Completed.
+
+## Completed
+
+- Parsed `docs/content_requests/mechanics_BATCH_1.5.0.md`, `docs/content_requests/Curse_BATCH_1.5.0.md`, and `docs/content_requests/Events_BATCH_1.5.0.md`.
+- Implemented `Plating`, `Buffer`, `Ritual`, and `Replay` as typed engine mechanisms with data/status definitions and focused tests.
+- Rechecked previously blocked content and implemented rows that were blocked only by the newly defined mechanics:
+  - v1.3 row 72 as `v150-plated-oath` / `镀誓` / `周期缓冲协议`.
+  - v1.4 potion row 29 as `v150-plating-vial`.
+  - v1.4 potion row 33 as `v150-buffer-vial`.
+  - v1.4 potion row 34 as `v150-ritual-vial`.
+  - v1.4 potion row 46 as `v150-replay-etching`.
+- Added the curse system:
+  - New `curse` card type/rarity.
+  - Unplayable default cost display.
+  - 18 curse definitions with normal and low-profile names/descriptions.
+  - Curse pile flow through deck, draw, hand, discard, retain, and exhaust.
+  - Curse timing hooks for combat start/opening hand, end-turn HP/gold/status effects, retain, self-exhaust, and play-limit constraints.
+- Added three-act run progression:
+  - Act 1, act 2, and act 3 each generate a deterministic map.
+  - Act bosses are `bell_tower_guardian`, `tide_archive_prime`, and `oath_mirror_warden`.
+  - Act 1/2 boss rewards transition to the next act, heal to at least 90% max HP, and open a major event.
+  - Act 3 boss reward completes victory, writes run history, and unlocks the next local ascension level.
+- Added the event system:
+  - Major act-start events.
+  - Minor map event nodes.
+  - Deterministic event selection with run-local seen-event tracking.
+  - Typed event effects for HP, gold, deck, relics, potions, curses, card upgrade, remove, transform, and downgrade.
+  - `EventScreen` with normal and low-profile display.
+  - Event logs and local save/load support.
+- Added deterministic continue for shop and event nodes:
+  - Shop start snapshots restore initial gold, inventory, and sold flags after returning to menu and continuing.
+  - Event start snapshots restore event id, choices, deck/resources, and unchosen state after returning to menu and continuing.
+  - Combat start snapshot behavior remains intact.
+- Updated local save schema to v5.
+- Updated `docs/MECHANICS.md`, `docs/CONTENT_CATALOG.md`, `docs/MILESTONES.md`, `docs/ARCHITECTURE.md`, `CHANGELOG.md`, and `PROGRESS.md`.
+- Added `src/tests/v150Systems.test.ts` and updated existing tests for content counts, boss pools, start-run event flow, three-act routing, event persistence, and low-profile curse display.
+
+## Still Blocked
+
+- v1.3 card rows 27, 60, and 75 remain blocked:
+  - Row 27 and row 75 require another player or ally model, which conflicts with the current single-player combat model.
+  - Row 60 references `Giant Rock` / `Giant Rock+` without defining card/token cost, type, and effect.
+- v1.4 potion rows still blocked are 1, 2, 9, 10, 14, 23, 26, 28, 30, 37, 39, 44, and 51. These require missing choose-any/choose-one UI, the absent `Regent` class, undefined `Forge`, event/merchant targeting, token ownership fields, or hand-card selection UI.
+- Several v1.5 event choices remain blocked in event data because they require secondary selection screens or undefined objects/systems:
+  - Colorless-card or card-offer selection.
+  - Route preview/reroll.
+  - Enchantment systems.
+  - Undefined relic/object references.
+  - Undefined key/fake-relic/fight flows.
+  - Undefined future delayed rewards or potion conversion tables.
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-10 with 20 test files and 116 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-10 with TypeScript checking and Vite production build.
+
+## Product-Spec Concerns
+
+- No network gameplay, account login, cloud sync, telemetry, analytics, ads, remote feature flags, remote game data, commercial APIs, scraping, new class, new account system, or real cloud sync was added.
+- Blocked event choices and remaining blocked rows were left blocked rather than approximated because the request required no guessing when fields or mechanics are undefined.
+
+## v1.5.2: Starter Loadout, Rest Upgrade Details, Relic Display, and Card Keywords
+
+Status: Completed.
+
+## Completed
+
+- Centralized the current default Iron Oath starter loadout in `src/game/data/starterDecks.ts`:
+  - 5 `short-blade-advance` basic attacks.
+  - 4 `guarded-stance` basic defenses.
+  - 1 `break-stance-smash`.
+  - Starter relic `afterglow-charm`.
+- Kept initial deck instance creation through `createDeckCardInstances`, so every starter `CardInstance` begins with `upgraded: false`.
+- Ensured `startRun` reads starter deck and starter relics from the same loadout source and de-duplicates relic ids.
+- Expanded rest upgrade results with card name, before/after normal descriptions, before/after low-profile descriptions, and before/after costs.
+- Updated `RestScreen` to show upgrade-before and upgrade-after details, plus cost change when cost changes; already upgraded cards remain disabled and marked as upgraded/optimized.
+- Added `RelicBar` and mounted it on MapScreen and CombatScreen.
+- Relic display now supports normal names/descriptions, low-profile names/descriptions, and empty-state text.
+- Added `src/ui/terminology/keywordDescriptions.ts` as the centralized mechanism/keyword description registry.
+- Updated CardView to wrap recognized mechanism terms in focusable hover/focus keyword elements while preserving the original description string on the description element.
+- Added `src/tests/v152Systems.test.ts` for starter deck counts, unupgraded starter cards, rest upgrade details, repeat-upgrade prevention, starter relic display/effect, keyword registry lookups, CardView keyword rendering, and low-profile keyword descriptions.
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-11 with 21 test files and 120 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-11 with TypeScript checking and Vite production build.
+
+## Product-Spec Concerns
+
+- No reward-pool logic was changed.
+- No new class, network gameplay, account login, cloud sync, telemetry, analytics, ads, remote feature flags, or remote content fetch was added.
+
+## v1.6.0: Three-Act Enemy Pool Update
+
+Status: Completed for all locally implementable enemy-pool content; exact unsupported sub-mechanics are blocked below.
+
+## Completed
+
+- Parsed `docs/content_requests/Enemy_BATCH_1.6.0.md`.
+- Added v1.6 enemy definitions for act 1, act 2, and act 3 normal enemies, elite enemies, boss enemies, summons, and boss parts.
+- Added enemy fields for:
+  - `act`
+  - `role`
+  - `description`
+  - `lowProfileDescription`
+  - `initialStatuses`
+- Added act-aware enemy groups:
+  - Act 1: 12 combat groups, 4 elite groups, 3 boss groups.
+  - Act 2: 11 combat groups, 3 elite groups, 3 boss groups.
+  - Act 3: 11 combat groups, 3 elite groups, 3 boss groups.
+- Updated map creation so boss nodes store a seed-determined boss group from the current act's boss pool.
+- Updated run enemy selection so combat, elite, and boss nodes select only groups matching the current act and node type.
+- Added typed enemy `damageRepeated` effects.
+- Added enemy `initialStatuses` application at combat creation.
+- Added or registered v1.6 statuses:
+  - `slippery`
+  - `slow`
+  - `constrict`
+  - `tangled`
+  - `tender`
+  - `slumber`
+  - `stun`
+  - `spawned`
+  - `curlUp`
+  - `reattach`
+  - `vitalSpark`
+  - `personalHive`
+  - `sandpit`
+  - `galvanic`
+  - `stock`
+  - `paperCuts`
+  - `plow`
+  - `ringing`
+  - `chainsOfBinding`
+  - `intangible`
+  - `painfulStabs`
+  - `nemesis`
+  - `pollutionSlimed`
+  - `pollutionDazed`
+  - `pollutionBurn`
+  - `pollutionWound`
+  - `infection`
+  - `toxic`
+- Implemented concrete behavior for:
+  - Slippery hit caps and stack consumption.
+  - Intangible hit caps.
+  - enemy Stun/Slumber action skipping.
+  - generic end-turn HP loss for statuses that define `turnEndHpLossPerStack`.
+  - enemy repeated damage resolving one hit at a time.
+- Updated low-profile enemy intent labels in `EnemyPanel`.
+- Added `src/tests/v160Enemies.test.ts` for content registration, act-aware selection, boss determinism, node entry by act, initial statuses, Slippery, Intangible, repeated enemy damage, Slumber, and low-profile enemy UI.
+- Updated older content/group/run tests to validate act-aware enemy pools instead of the previous global boss/group assumptions.
+- Updated:
+  - `docs/MECHANICS.md`
+  - `docs/CONTENT_CATALOG.md`
+  - `docs/MILESTONES.md`
+  - `CHANGELOG.md`
+  - `PROGRESS.md`
+
+## Blocked or Limited v1.6 Enemy Sub-Mechanics
+
+- Dynamic summons are not fully implemented. Enemies that summon or spawn are represented by initial group composition and `spawned` marker statuses.
+- On-death spawning/revival is not implemented. Phrog Parasite, Wriggler, Decimillipede reattachment, Axebot stock refill, Fabricator bots, and similar rows are implemented as current encounter data plus marker statuses, not dynamic death triggers.
+- Exact boss phase scripts are not implemented. Ceremonial Beast, Doormaker, The Queen, and Test Subject #C10 use available data-driven moves/statuses, but threshold phase changes, hiding/returning, shield-front behavior, and phase-specific debuff clearing remain blocked.
+- True status-card deck pollution is not implemented for enemies. Slimed/Dazed/Burn/Wound/Infection/Toxic requests are represented by typed status markers or HP-loss statuses rather than inserting temporary status cards into draw/discard piles.
+- Forced permanent choices and bespoke boss subsystems are not implemented. Knowledge Demon forced choice, Insatiable Sandpit death countdown/Frantic Escape cards, and Test Subject skill/unblocked-damage reactive rules remain blocked.
+- Resource theft and permanent max-HP loss are not implemented. Thieving Hopper and Scroll of Biting use available combat effects/statuses without mutating run gold or max HP from enemy actions.
+- Ally/body-part cross-effects are not implemented. Kaiser Crab claw death buffs, Queen front-body gating, and Doormaker door/body cycling remain represented by multi-enemy groups and standard moves.
+
+## Verification Commands
+
+```bash
+npm test
+npm run build
+```
+
+## Test Result
+
+`npm test` passed on 2026-06-11 with 22 test files and 130 tests.
+
+## Build Result
+
+`npm run build` passed on 2026-06-11 with TypeScript checking and Vite production build.
+
+## Product-Spec Concerns
+
+- No new class, network gameplay, account login, cloud sync, telemetry, analytics, ads, remote feature flags, remote content fetch, commercial API, or scraping was added.
+- Unsupported sub-mechanics were recorded rather than implemented as UI-side or hidden approximations.

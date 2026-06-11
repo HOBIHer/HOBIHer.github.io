@@ -3,10 +3,12 @@ import { CombatScreen } from './ui/screens/CombatScreen';
 import { DefeatScreen } from './ui/screens/DefeatScreen';
 import { MainMenu } from './ui/screens/MainMenu';
 import { MapScreen } from './ui/screens/MapScreen';
+import { EventScreen } from './ui/screens/EventScreen';
 import { RestScreen } from './ui/screens/RestScreen';
 import { RewardScreen } from './ui/screens/RewardScreen';
 import { RunHistoryScreen } from './ui/screens/RunHistoryScreen';
 import { SettingsScreen } from './ui/screens/SettingsScreen';
+import { ShopScreen } from './ui/screens/ShopScreen';
 import { VictoryScreen } from './ui/screens/VictoryScreen';
 import { useGameStore } from './game/store/useGameStore';
 import { getAppRootClassName, getAppRootStyle } from './ui/themes/appTheme';
@@ -91,6 +93,14 @@ function renderScreen(screen: string) {
 
   if (screen === 'rest') {
     return <RestScreen />;
+  }
+
+  if (screen === 'shop') {
+    return <ShopScreen />;
+  }
+
+  if (screen === 'event') {
+    return <EventScreen />;
   }
 
   if (screen === 'victory') {

@@ -12,20 +12,27 @@ import {
   failRun,
   leaveRestNode,
   restartCombatFromSnapshot,
+  restartEventFromSnapshot,
+  restartShopFromSnapshot,
   resolveReward as resolveRunReward,
   restAtNode,
   skipCardReward,
   startNewRun as startEngineRun,
   upgradeCardAtNode,
 } from '../engine/run';
+import { resolveEventChoice as resolveRunEventChoice } from '../engine/events';
 import {
   endPlayerTurn,
   isCombatLost,
   isCombatWon,
   playCard as playCombatCard,
 } from '../engine/combat';
-import { usePotion as useRunPotion } from '../engine/potions';
+import { triggerDeathWardPotion, usePotion as useRunPotion } from '../engine/potions';
+import { buyShopItem as buyRunShopItem, leaveShopNode } from '../engine/shop';
+import { clampAscensionLevel, unlockNextAscensionLevel } from '../engine/ascension';
 import type {
+  AscensionLevel,
+  AscensionProgress,
   BackgroundId,
   CombatState,
   CurrentRunSave,
@@ -55,7 +62,10 @@ interface GameStore {
   exportJson: string;
   importJson: string;
   importError?: string;
-  startNewRun: (seed?: string | number) => void;
+  ascensionProgress: AscensionProgress;
+  selectedAscensionLevel: AscensionLevel;
+  setSelectedAscensionLevel: (level: AscensionLevel) => void;
+  startNewRun: (seed?: string | number, ascensionLevel?: AscensionLevel) => void;
   continueRun: () => void;
   enterMapNode: (nodeId: string) => void;
   playCard: (cardInstanceId: string, targetEnemyId?: string) => void;
@@ -67,6 +77,9 @@ interface GameStore {
   upgradeCardAtCurrentNode: (cardInstanceId: string) => void;
   returnToMapAfterRest: () => void;
   usePotion: (potionInstanceId: string, targetEnemyId?: string) => void;
+  buyShopItem: (itemId: string) => void;
+  leaveShop: () => void;
+  chooseEventChoice: (choiceId: string) => void;
   returnToMenu: () => void;
   openRunHistory: () => void;
   openSettings: () => void;
@@ -87,6 +100,7 @@ interface GameStore {
 
 const storageAdapter = new LocalStorageAdapter();
 const savedRun = resumeCurrentRunSave(storageAdapter.loadRun());
+const savedAscensionProgress = storageAdapter.loadAscensionProgress();
 const initialScreen = savedRun?.screen ?? 'mainMenu';
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -102,8 +116,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   canContinueRun: Boolean(savedRun?.run.status === 'active'),
   exportJson: '',
   importJson: '',
-  startNewRun: (seed) => {
-    const run = startEngineRun(seed);
+  ascensionProgress: savedAscensionProgress,
+  selectedAscensionLevel: savedAscensionProgress.unlockedLevel,
+  setSelectedAscensionLevel: (level) => {
+    const unlocked = get().ascensionProgress.unlockedLevel;
+    set({ selectedAscensionLevel: clampAscensionLevel(Math.min(level, unlocked)) });
+  },
+  startNewRun: (seed, ascensionLevel) => {
+    const unlocked = get().ascensionProgress.unlockedLevel;
+    const selected = clampAscensionLevel(Math.min(ascensionLevel ?? get().selectedAscensionLevel, unlocked));
+    const run = startEngineRun(seed, selected);
     const nextState = stateFromRun(run);
     set(nextState);
     saveCurrentRun({ ...get(), ...nextState });
@@ -250,10 +272,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(nextState);
     saveCurrentRun({ ...get(), ...nextState });
   },
+  buyShopItem: (itemId) => {
+    const { run, screen } = get();
+    if (!run || screen !== 'shop') {
+      return;
+    }
+
+    const nextRun = buyRunShopItem(run, itemId);
+    const nextState = stateFromRun(nextRun);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+  },
+  leaveShop: () => {
+    const { run, screen } = get();
+    if (!run || screen !== 'shop') {
+      return;
+    }
+
+    const nextRun = leaveShopNode(run);
+    const nextState = stateFromRun(nextRun);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+  },
+  chooseEventChoice: (choiceId) => {
+    const { run, screen } = get();
+    if (!run || screen !== 'event') {
+      return;
+    }
+
+    const nextRun = resolveRunEventChoice(run, choiceId);
+    const nextState = stateFromRun(nextRun);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+  },
   returnToMenu: () => {
     const state = get();
     if (state.run?.status === 'active' && isSaveableScreen(state.screen)) {
-      saveCurrentRun(state);
+      saveCurrentRun(createDeterministicContinueState(state));
       set({
         screen: 'mainMenu',
         settingsReturnScreen: 'mainMenu',
@@ -387,8 +442,30 @@ function handleCombatResult(
   set: (partial: Partial<GameStore>) => void,
   get: () => GameStore,
 ): void {
+  const previousGoldLost = get().combat?.combatStats.goldLost ?? 0;
+  const nextGoldLost = combat.combatStats.goldLost ?? 0;
+  const goldLoss = Math.max(0, nextGoldLost - previousGoldLost);
+  const runAfterCombatCosts =
+    goldLoss > 0
+      ? {
+          ...run,
+          character: {
+            ...run.character,
+            gold: Math.max(0, run.character.gold - goldLoss),
+          },
+        }
+      : run;
+
+  const deathWard = triggerDeathWardPotionIfNeeded(runAfterCombatCosts, combat);
+  if (deathWard.triggered) {
+    const nextState = stateFromRun(deathWard.run);
+    set(nextState);
+    saveCurrentRun({ ...get(), ...nextState });
+    return;
+  }
+
   if (isCombatWon(combat)) {
-    const nextRun = completeCombatNode(run);
+    const nextRun = completeCombatNode(runAfterCombatCosts);
     const nextState = stateFromRun(nextRun);
     set(nextState);
     saveCurrentRun({ ...get(), ...nextState });
@@ -396,19 +473,26 @@ function handleCombatResult(
   }
 
   if (isCombatLost(combat)) {
-    const nextRun = failRun(run);
+    const nextRun = failRun(runAfterCombatCosts);
     commitRunTransition(run, nextRun, set, get);
     return;
   }
 
   const nextRun = {
-    ...run,
+    ...runAfterCombatCosts,
     currentCombat: combat,
     currentScreen: 'combat' as const,
   };
   const nextState = stateFromRun(nextRun);
   set(nextState);
   saveCurrentRun({ ...get(), ...nextState });
+}
+
+function triggerDeathWardPotionIfNeeded(
+  run: RunState,
+  combat: CombatState,
+): { run: RunState; combat: CombatState; triggered: boolean } {
+  return isCombatLost(combat) ? triggerDeathWardPotion(run, combat) : { run, combat, triggered: false };
 }
 
 function commitRunTransition(
@@ -420,13 +504,22 @@ function commitRunTransition(
   const nextState = stateFromRun(nextRun);
 
   if (previousRun.status === 'active' && nextRun.status !== 'active' && nextRun.currentSummary) {
+    const ascensionProgress =
+      nextRun.status === 'victory'
+        ? {
+            unlockedLevel: unlockNextAscensionLevel(get().ascensionProgress.unlockedLevel),
+          }
+        : get().ascensionProgress;
     const runHistory = recordRunSummary(nextRun.currentSummary, get().runHistory);
     set({
       ...nextState,
       runHistory,
       lastRunSummary: nextRun.currentSummary,
       canContinueRun: false,
+      ascensionProgress,
+      selectedAscensionLevel: ascensionProgress.unlockedLevel,
     });
+    storageAdapter.saveAscensionProgress(ascensionProgress);
     storageAdapter.clearRun();
     return;
   }
@@ -465,6 +558,34 @@ function resumeCurrentRunSave(save: CurrentRunSave | undefined): CurrentRunSave 
     rewards: [],
     pendingReward: undefined,
   };
+}
+
+function createDeterministicContinueState(
+  state: Pick<GameStore, 'screen' | 'run' | 'combat' | 'rewards' | 'pendingReward'>,
+): Pick<GameStore, 'screen' | 'run' | 'combat' | 'rewards' | 'pendingReward'> {
+  if (state.screen === 'shop' && state.run?.shopStartSnapshot) {
+    const run = restartShopFromSnapshot(state.run);
+    return {
+      screen: 'shop',
+      run,
+      combat: undefined,
+      rewards: [],
+      pendingReward: undefined,
+    };
+  }
+
+  if (state.screen === 'event' && state.run?.eventStartSnapshot) {
+    const run = restartEventFromSnapshot(state.run);
+    return {
+      screen: 'event',
+      run,
+      combat: undefined,
+      rewards: [],
+      pendingReward: undefined,
+    };
+  }
+
+  return state;
 }
 
 function createRewardOptions(reward: RewardBundle | undefined): RewardOption[] {
@@ -512,5 +633,5 @@ function saveCurrentRun(state: Pick<GameStore, 'screen' | 'run' | 'combat' | 're
 }
 
 function isSaveableScreen(screen: GameScreen): boolean {
-  return screen === 'map' || screen === 'combat' || screen === 'reward' || screen === 'rest';
+  return screen === 'map' || screen === 'combat' || screen === 'reward' || screen === 'rest' || screen === 'shop' || screen === 'event';
 }

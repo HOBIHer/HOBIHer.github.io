@@ -1,8 +1,12 @@
 import type {
+  AscensionProgress,
+  CardCost,
   CombatStartSnapshot,
   CombatState,
   CardInstance,
   CurrentRunSave,
+  EventStartSnapshot,
+  EventState,
   GameScreen,
   MapNode,
   PotionInstance,
@@ -11,18 +15,22 @@ import type {
   RewardOption,
   RunState,
   RunSummary,
+  ShopStartSnapshot,
+  ShopState,
   UserSettings,
 } from '../game/types';
 import { clampBackgroundOpacity } from './backgroundAdapter';
 
-export const SAVE_DATA_VERSION = 3;
-export const CURRENT_RUN_STORAGE_KEY = 'slaythefish2.currentRun.v3';
-export const SETTINGS_STORAGE_KEY = 'slaythefish2.settings.v3';
-export const RUN_HISTORY_STORAGE_KEY = 'slaythefish2.runHistory.v3';
+export const SAVE_DATA_VERSION = 5;
+export const CURRENT_RUN_STORAGE_KEY = 'slaythefish2.currentRun.v5';
+export const SETTINGS_STORAGE_KEY = 'slaythefish2.settings.v5';
+export const RUN_HISTORY_STORAGE_KEY = 'slaythefish2.runHistory.v5';
+export const ASCENSION_PROGRESS_STORAGE_KEY = 'slaythefish2.ascensionProgress.v5';
 
-const LEGACY_CURRENT_RUN_STORAGE_KEYS = ['slaythefish2.currentRun.v2', 'slaythefish2.currentRun.v1'];
-const LEGACY_SETTINGS_STORAGE_KEYS = ['slaythefish2.settings.v2', 'slaythefish2.settings.v1'];
-const LEGACY_RUN_HISTORY_STORAGE_KEYS = ['slaythefish2.runHistory.v2', 'slaythefish2.runHistory.v1'];
+const LEGACY_CURRENT_RUN_STORAGE_KEYS = ['slaythefish2.currentRun.v4', 'slaythefish2.currentRun.v3', 'slaythefish2.currentRun.v2', 'slaythefish2.currentRun.v1'];
+const LEGACY_SETTINGS_STORAGE_KEYS = ['slaythefish2.settings.v4', 'slaythefish2.settings.v3', 'slaythefish2.settings.v2', 'slaythefish2.settings.v1'];
+const LEGACY_RUN_HISTORY_STORAGE_KEYS = ['slaythefish2.runHistory.v4', 'slaythefish2.runHistory.v3', 'slaythefish2.runHistory.v2', 'slaythefish2.runHistory.v1'];
+const LEGACY_ASCENSION_PROGRESS_STORAGE_KEYS = ['slaythefish2.ascensionProgress.v4'];
 
 export interface StorageLike {
   getItem: (key: string) => string | null;
@@ -44,6 +52,8 @@ export interface StorageAdapter {
   loadSettings(): UserSettings;
   saveRunHistory(history: RunSummary[]): void;
   loadRunHistory(): RunSummary[];
+  saveAscensionProgress(progress: AscensionProgress): void;
+  loadAscensionProgress(): AscensionProgress;
   exportRunHistoryJson(history?: RunSummary[]): string;
   importRunHistoryJson(json: string): RunSummary[];
 }
@@ -101,6 +111,19 @@ export class LocalStorageAdapter implements StorageAdapter {
     const raw = this.getVersionedValue(RUN_HISTORY_STORAGE_KEY, LEGACY_RUN_HISTORY_STORAGE_KEYS);
     const migrated = this.migrateSaveData(raw);
     return normalizeRunHistory(migrated?.data);
+  }
+
+  saveAscensionProgress(progress: AscensionProgress): void {
+    this.setVersioned(ASCENSION_PROGRESS_STORAGE_KEY, normalizeAscensionProgress(progress));
+  }
+
+  loadAscensionProgress(): AscensionProgress {
+    const raw = this.getVersionedValue(
+      ASCENSION_PROGRESS_STORAGE_KEY,
+      LEGACY_ASCENSION_PROGRESS_STORAGE_KEYS,
+    );
+    const migrated = this.migrateSaveData(raw);
+    return normalizeAscensionProgress(migrated?.data);
   }
 
   exportRunHistoryJson(history: RunSummary[] = this.loadRunHistory()): string {
@@ -211,6 +234,7 @@ export function createRunHistoryEntry(
     id: `${run.id}-${status}-${completedAt}`,
     seed: run.seed,
     characterClassId: run.character.id,
+    ascensionLevel: run.ascensionLevel,
     status,
     floorReached: run.floor,
     finalHp: Math.max(0, run.character.hp),
@@ -296,6 +320,13 @@ function normalizeRunState(
     floor: Number.isFinite(Number(record.floor)) ? Number(record.floor) : 1,
     runStartedAt:
       typeof record.runStartedAt === 'string' ? record.runStartedAt : new Date(0).toISOString(),
+    ascensionLevel: normalizeAscensionLevel(record.ascensionLevel),
+    shops: normalizeShops(record.shops),
+    currentShop: normalizeShopState(record.currentShop),
+    shopStartSnapshot: normalizeShopStartSnapshot(record.shopStartSnapshot),
+    currentEvent: normalizeEventState(record.currentEvent),
+    eventStartSnapshot: normalizeEventStartSnapshot(record.eventStartSnapshot),
+    seenEventIds: Array.isArray(record.seenEventIds) ? record.seenEventIds.filter(isString) : [],
     currentCombat: normalizeCombatState(record.currentCombat),
     combatStartSnapshot: normalizeCombatStartSnapshot(record.combatStartSnapshot),
     lastRestResult: normalizeRestResult(record.lastRestResult),
@@ -312,7 +343,7 @@ function normalizeMapNodes(value: unknown): MapNode[] {
   }
 
   const statuses = new Set(['locked', 'available', 'completed', 'current']);
-  const types = new Set(['combat', 'elite', 'rest', 'boss']);
+  const types = new Set(['combat', 'elite', 'event', 'rest', 'shop', 'boss']);
 
   const normalized = value.filter(isRecord).map((node, index) => {
     const layer = Number.isFinite(Number(node.layer))
@@ -360,6 +391,7 @@ function normalizeCombatState(value: unknown): CombatState | undefined {
   const combat = value as unknown as CombatState;
   return {
     ...combat,
+    ascensionLevel: normalizeAscensionLevel(combat.ascensionLevel),
     turnStats: {
       cardsPlayed: Number(combat.turnStats?.cardsPlayed ?? 0),
       attacksPlayed: Number(combat.turnStats?.attacksPlayed ?? 0),
@@ -374,6 +406,7 @@ function normalizeCombatState(value: unknown): CombatState | undefined {
     },
     combatStats: {
       hpLossEvents: Number(combat.combatStats?.hpLossEvents ?? 0),
+      goldLost: Number(combat.combatStats?.goldLost ?? 0),
     },
     enemies: Array.isArray(combat.enemies)
       ? combat.enemies.map((enemy) => ({
@@ -431,7 +464,33 @@ function normalizeRestResult(value: unknown): RestResult | undefined {
     upgradedCardName: typeof value.upgradedCardName === 'string' ? value.upgradedCardName : undefined,
     upgradedLowProfileName:
       typeof value.upgradedLowProfileName === 'string' ? value.upgradedLowProfileName : undefined,
+    upgradeBeforeDescription:
+      typeof value.upgradeBeforeDescription === 'string' ? value.upgradeBeforeDescription : undefined,
+    upgradeAfterDescription:
+      typeof value.upgradeAfterDescription === 'string' ? value.upgradeAfterDescription : undefined,
+    upgradeBeforeLowProfileDescription:
+      typeof value.upgradeBeforeLowProfileDescription === 'string'
+        ? value.upgradeBeforeLowProfileDescription
+        : undefined,
+    upgradeAfterLowProfileDescription:
+      typeof value.upgradeAfterLowProfileDescription === 'string'
+        ? value.upgradeAfterLowProfileDescription
+        : undefined,
+    upgradeBeforeCost: normalizeCardCost(value.upgradeBeforeCost),
+    upgradeAfterCost: normalizeCardCost(value.upgradeAfterCost),
   };
+}
+
+function normalizeCardCost(value: unknown): CardCost | undefined {
+  if (value === 'X' || value === 'unplayable') {
+    return value;
+  }
+
+  if (Number.isFinite(Number(value))) {
+    return Math.max(0, Number(value));
+  }
+
+  return undefined;
 }
 
 function normalizeDeck(value: unknown, prefix = 'deck'): CardInstance[] {
@@ -460,6 +519,8 @@ function normalizeDeck(value: unknown, prefix = 'deck'): CardInstance[] {
         costOverride: Number.isFinite(Number(card.costOverride)) ? Number(card.costOverride) : undefined,
         exhaustOnPlay: typeof card.exhaustOnPlay === 'boolean' ? card.exhaustOnPlay : undefined,
         damageBonus: Number.isFinite(Number(card.damageBonus)) ? Number(card.damageBonus) : undefined,
+        replay: Number.isFinite(Number(card.replay)) ? Number(card.replay) : undefined,
+        remainingCombats: Number.isFinite(Number(card.remainingCombats)) ? Number(card.remainingCombats) : undefined,
       };
     })
     .filter((card): card is CardInstance => Boolean(card));
@@ -492,6 +553,99 @@ function normalizePotions(value: unknown): PotionInstance[] {
     .filter((potion): potion is PotionInstance => Boolean(potion));
 }
 
+function normalizeShops(value: unknown): Record<string, ShopState> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([nodeId, shop]) => [nodeId, normalizeShopState(shop)] as const)
+      .filter((entry): entry is readonly [string, ShopState] => Boolean(entry[1])),
+  );
+}
+
+function normalizeShopState(value: unknown): ShopState | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    nodeId: typeof value.nodeId === 'string' ? value.nodeId : '',
+    removeCardPrice: Number.isFinite(Number(value.removeCardPrice)) ? Number(value.removeCardPrice) : 75,
+    items: Array.isArray(value.items)
+      ? value.items.filter(isRecord).map((item, index) => ({
+          id: typeof item.id === 'string' ? item.id : `shop-item-${index}`,
+          type:
+            item.type === 'card' || item.type === 'relic' || item.type === 'potion' || item.type === 'remove'
+              ? item.type
+              : 'card',
+          refId: typeof item.refId === 'string' ? item.refId : undefined,
+          price: Number.isFinite(Number(item.price)) ? Number(item.price) : 0,
+          sold: Boolean(item.sold),
+        }))
+      : [],
+  };
+}
+
+function normalizeShopStartSnapshot(value: unknown): ShopStartSnapshot | undefined {
+  if (!isRecord(value) || !isRecord(value.run)) {
+    return undefined;
+  }
+
+  return {
+    id: typeof value.id === 'string' ? value.id : 'shop-start-snapshot',
+    nodeId: typeof value.nodeId === 'string' ? value.nodeId : '',
+    shopSeed: typeof value.shopSeed === 'string' ? value.shopSeed : '',
+    run: normalizeRunState(value.run, 'shop', undefined),
+  };
+}
+
+function normalizeEventStartSnapshot(value: unknown): EventStartSnapshot | undefined {
+  if (!isRecord(value) || !isRecord(value.run)) {
+    return undefined;
+  }
+
+  return {
+    id: typeof value.id === 'string' ? value.id : 'event-start-snapshot',
+    eventSeed: typeof value.eventSeed === 'string' ? value.eventSeed : '',
+    run: normalizeRunState(value.run, 'event', undefined),
+  };
+}
+
+function normalizeEventState(value: unknown): EventState | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    id: typeof value.id === 'string' ? value.id : 'event',
+    eventId: typeof value.eventId === 'string' ? value.eventId : '',
+    kind: value.kind === 'minor' ? 'minor' : 'major',
+    nodeId: typeof value.nodeId === 'string' ? value.nodeId : undefined,
+    seed: typeof value.seed === 'string' ? value.seed : '',
+    name: typeof value.name === 'string' ? value.name : '事件',
+    lowProfileName: typeof value.lowProfileName === 'string' ? value.lowProfileName : '事项',
+    description: typeof value.description === 'string' ? value.description : '',
+    lowProfileDescription:
+      typeof value.lowProfileDescription === 'string' ? value.lowProfileDescription : '',
+    choices: Array.isArray(value.choices) ? (value.choices as EventState['choices']) : [],
+    resultLog: Array.isArray(value.resultLog) ? value.resultLog.filter(isString) : [],
+  };
+}
+
+function normalizeAscensionProgress(value: unknown): AscensionProgress {
+  const record = isRecord(value) ? value : {};
+  return {
+    unlockedLevel: normalizeAscensionLevel(record.unlockedLevel),
+  };
+}
+
+function normalizeAscensionLevel(value: unknown) {
+  const level = Number.isFinite(Number(value)) ? Math.floor(Number(value)) : 0;
+  return Math.min(10, Math.max(0, level)) as AscensionProgress['unlockedLevel'];
+}
+
 function normalizeRunSummary(value: unknown): RunSummary | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -510,6 +664,7 @@ function normalizeRunSummary(value: unknown): RunSummary | undefined {
         : `${String(value.runId ?? 'run')}-${status}-${String(value.completedAt ?? value.endedAt ?? '')}`,
     seed: typeof value.seed === 'string' ? value.seed : String(value.rngSeed ?? value.runId ?? 'unknown'),
     characterClassId: 'iron-oath',
+    ascensionLevel: normalizeAscensionLevel(value.ascensionLevel),
     status,
     floorReached: Number.isFinite(Number(value.floorReached))
       ? Number(value.floorReached)
@@ -544,6 +699,8 @@ function normalizeScreen(value: unknown): GameScreen {
     'combat',
     'reward',
     'rest',
+    'shop',
+    'event',
     'runHistory',
     'settings',
     'victory',

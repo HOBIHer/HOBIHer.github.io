@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { relics } from '../game/data/relics/relics';
-import { enemyGroups, selectEnemyGroup } from '../game/data/enemies/groups';
+import { enemyGroups, getEnemyGroupsForNodeType, selectEnemyGroup } from '../game/data/enemies/groups';
 import { generateNodeReward } from '../game/engine/rewards';
 import { startNewRun } from '../game/engine/run';
 
@@ -35,20 +35,25 @@ describe('milestone 6 reward and group selection', () => {
 
   it('selects only groups matching node type and does so deterministically', () => {
     for (const nodeType of ['combat', 'elite', 'boss'] as const) {
-      const groupA = selectEnemyGroup(nodeType, `group-seed-${nodeType}`);
-      const groupB = selectEnemyGroup(nodeType, `group-seed-${nodeType}`);
+      const groupA = selectEnemyGroup(nodeType, `group-seed-${nodeType}`, 2);
+      const groupB = selectEnemyGroup(nodeType, `group-seed-${nodeType}`, 2);
 
       expect(groupA).toEqual(groupB);
       expect(groupA.nodeType).toBe(nodeType);
+      expect(groupA.act).toBe(2);
     }
   });
 
-  it('has boss group selection backed by the boss pool', () => {
-    const bossGroup = selectEnemyGroup('boss', 'boss-pool-seed');
-    const bossGroups = enemyGroups.filter((group) => group.nodeType === 'boss');
+  it('has act-specific boss group selection backed by each boss pool', () => {
+    for (const act of [1, 2, 3] as const) {
+      const bossGroup = selectEnemyGroup('boss', `boss-pool-seed-${act}`, act);
+      const bossGroups = getEnemyGroupsForNodeType('boss', act);
 
-    expect(bossGroups).toHaveLength(2);
-    expect(bossGroups.map((group) => group.id)).toContain(bossGroup.id);
-    expect(bossGroup.enemyIds.length).toBe(1);
+      expect(bossGroups).toHaveLength(3);
+      expect(enemyGroups).toContain(bossGroup);
+      expect(bossGroups.map((group) => group.id)).toContain(bossGroup.id);
+      expect(bossGroup.enemyIds.length).toBeGreaterThan(0);
+      expect(bossGroup.act).toBe(act);
+    }
   });
 });

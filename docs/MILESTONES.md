@@ -283,3 +283,95 @@ Status: Completed on 2026-06-09.
 npm test
 npm run build
 ```
+
+## v1.4.0: Potion Batch + Ascension + Map + Shop Update
+
+Status: Completed on 2026-06-10.
+
+### Scope
+
+- Implement all locally compatible rows from `docs/content_requests/potion_BATCH_1.4.0.md`.
+- Block rows that require missing choice UI, absent classes, event/merchant targeting, tokens, or undefined mechanics.
+- Add ascension levels 0-10 with local unlock persistence and stacked restrictions.
+- Replace Act 1 with a deterministic 14-layer DAG containing combat, elite, rest, shop, and boss nodes.
+- Add deterministic shop inventories for cards, relics, and potions.
+- Add a starter victory-heal relic to the current default Iron Oath class.
+
+### Completion Criteria
+
+- Potion definitions have complete ids, names, low-profile names, rarity, target, descriptions, and effects.
+- New potion mechanisms are typed, documented, and covered by Vitest.
+- Ascension victory unlocks, failure behavior, stacked restrictions, and local persistence are covered.
+- The new map has multiple starts, branches, merges, re-branches, shops, and one final boss endpoint.
+- Shops support deterministic inventory, card/relic/potion purchases, sold flags, gold checks, full-potion-slot safety, leaving, and save/load preservation.
+- The starter relic heals after victory and does not appear in ordinary relic rewards.
+- No network, account, telemetry, ads, cloud sync, remote data fetches, commercial APIs, or scraping are introduced.
+
+### Test Commands
+
+```bash
+npm test
+npm run build
+```
+
+## v1.5.0: Mechanism Completion + Curses + Three Acts + Events
+
+Status: Completed on 2026-06-10.
+
+### Scope
+
+- Implement v1.5.0 mechanics from `docs/content_requests/mechanics_BATCH_1.5.0.md`: `Plating`, `Buffer`, `Ritual`, and `Replay`.
+- Revisit previously blocked content and implement rows that were blocked only by those newly defined mechanics.
+- Add a curse card type and implement all curses from `docs/content_requests/Curse_BATCH_1.5.0.md`.
+- Convert runs to a three-act structure with deterministic act maps, distinct bosses, major act-start events, and act transition healing.
+- Add major and minor event systems from `docs/content_requests/Events_BATCH_1.5.0.md`, blocking only choices that require missing secondary-choice UI or undefined objects.
+- Add deterministic continue snapshots for shop and event nodes so returning to menu cannot reroll inventories or event choices.
+- Update local save normalization for v1.5.0 fields.
+
+### Completion Criteria
+
+- New mechanics are typed, documented, and covered by Vitest for base, edge, and interaction cases.
+- Previously blocked Plating/Buffer/Ritual/Replay card and potion content is implemented where the rest of the row is now supported.
+- Curse cards have complete ids, normal/low-profile text, unplayable/default behavior, and pile/trigger coverage.
+- Act 1 boss advances to act 2, act 2 boss advances to act 3, and act 3 boss records victory plus ascension unlock.
+- Each act begins with a major event, and map event nodes resolve deterministic minor events without run-stopping repeats.
+- Shop and event deterministic continue snapshots restore node-start state while preserving inventory/event identity.
+- No account, telemetry, ads, network gameplay, cloud sync, remote data fetch, or commercial API integration is introduced.
+
+### Test Commands
+
+```bash
+npm test
+npm run build
+```
+
+## v1.6.0: Three-Act Enemy Pool Update
+
+Status: Completed on 2026-06-11.
+
+### Scope
+
+- Implement the locally compatible enemy rows from `docs/content_requests/Enemy_BATCH_1.6.0.md`.
+- Add act-aware enemy group definitions for combat, elite, and boss nodes.
+- Make boss groups seed-determined per act during map creation.
+- Add typed enemy support for initial statuses and repeated enemy damage.
+- Add minimal status mechanisms required by the batch: Slippery, Intangible, enemy Stun/Slumber skips, and shared end-turn HP-loss status processing.
+- Keep map topology, reward generation, save format, and UI routing responsibilities unchanged except for encounter-pool selection.
+
+### Completion Criteria
+
+- Every v1.6 enemy id is present with name, low-profile name, act, role, max HP, intent pattern, and data-driven moves.
+- Every enemy group declares `act`, `nodeType`, enemy ids, and weight.
+- Combat, elite, and boss selection are filtered by current act and node type.
+- Boss nodes store deterministic act-specific boss groups, and same seeds produce the same boss group.
+- Multi-enemy combat continues to skip defeated enemies, reject defeated single targets, and ignore defeated enemies for all-enemy effects.
+- Low-profile enemy panels display low-profile enemy names and neutral intent labels.
+- Unsupported exact enemy sub-mechanics are recorded in `PROGRESS.md` rather than hidden in UI code.
+- No network, account, telemetry, ads, cloud sync, remote data fetch, commercial API, or scraping is introduced.
+
+### Test Commands
+
+```bash
+npm test
+npm run build
+```

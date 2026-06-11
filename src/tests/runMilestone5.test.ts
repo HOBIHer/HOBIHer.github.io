@@ -13,6 +13,8 @@ import {
   startNewRun,
 } from '../game/engine/run';
 import { generateNodeReward } from '../game/engine/rewards';
+import { leaveShopNode } from '../game/engine/shop';
+import { resolveEventChoice } from '../game/engine/events';
 import { useGameStore } from '../game/store/useGameStore';
 import type { MapNodeType, RunState } from '../game/types';
 
@@ -130,16 +132,18 @@ describe('milestone 5 rewards and run flow', () => {
     expect(cappedRun.lastRestResult?.healed).toBe(2);
   });
 
-  it('marks rest completed, unlocks the boss node, and can return to the map', () => {
+  it('marks rest completed, unlocks next nodes, and can return to the map', () => {
     let run = advanceToRest(startNewRun('rest-unlock'));
     const restNode = getEnterableNode(run, 'rest');
     run = enterMapNode(run, restNode.id);
     run = restAtNode(run);
-    const bossNode = run.map.find((node) => node.type === 'boss')!;
+    const nextNodeIds = new Set(restNode.nextNodeIds);
+    const nextNodes = run.map.filter((node) => nextNodeIds.has(node.id));
 
     expect(run.map.find((node) => node.id === restNode.id)?.status).toBe('completed');
-    expect(bossNode.status).toBe('available');
-    expect(canEnterNode(run.map, bossNode.id)).toBe(true);
+    expect(nextNodes.length).toBeGreaterThan(0);
+    expect(nextNodes.every((node) => node.status === 'available')).toBe(true);
+    expect(nextNodes.every((node) => canEnterNode(run.map, node.id))).toBe(true);
     expect(run.runLog).toContain('完成整理节点');
 
     run = leaveRestNode(run);
@@ -148,22 +152,26 @@ describe('milestone 5 rewards and run flow', () => {
     expect(run.currentNodeId).toBeUndefined();
   });
 
-  it('starts the placeholder boss combat and reaches victory after boss reward resolution', () => {
+  it('starts the act boss combat and advances to the next act after boss reward resolution', () => {
     let run = advanceToBoss(startNewRun('boss-flow'));
     const bossNode = getEnterableNode(run, 'boss');
 
     run = enterMapNode(run, bossNode.id);
 
-    expect(run.currentCombat?.enemies[0].definitionId).toBe('bell_tower_guardian');
-    expect(enemyGroupById.bell_tower_guardian_boss.enemyIds).toContain('bell_tower_guardian');
+    const bossGroup = enemyGroupById[bossNode.enemyGroupId!];
+    expect(bossGroup.act).toBe(1);
+    expect(bossGroup.nodeType).toBe('boss');
+    expect(run.currentCombat?.enemies.map((enemy) => enemy.definitionId)).toEqual(bossGroup.enemyIds);
 
     run = forceVictory(run);
     run = completeCombatNode(run);
     run = resolveReward(run);
 
-    expect(run.status).toBe('victory');
-    expect(run.currentScreen).toBe('victory');
-    expect(run.currentSummary?.status).toBe('victory');
+    expect(run.status).toBe('active');
+    expect(run.currentScreen).toBe('event');
+    expect(run.act).toBe(2);
+    expect(run.currentEvent?.kind).toBe('major');
+    expect(run.character.hp).toBeGreaterThanOrEqual(Math.ceil(run.character.maxHp * 0.9));
   });
 
   it('sets defeat status through failRun', () => {
@@ -193,6 +201,7 @@ describe('milestone 5 rewards and run flow', () => {
     bossRewardRun = enterMapNode(bossRewardRun, getEnterableNode(bossRewardRun, 'boss').id);
     bossRewardRun = forceVictory(bossRewardRun);
     bossRewardRun = completeCombatNode(bossRewardRun);
+    bossRewardRun = { ...bossRewardRun, act: 3 };
 
     useGameStore.setState({
       screen: 'reward',
@@ -232,15 +241,14 @@ describe('milestone 5 rewards and run flow', () => {
 });
 
 function advanceToRest(run: RunState): RunState {
-  let nextRun = completeEnterableCombat(run, 'combat');
-  nextRun = completeEnterableCombat(nextRun, 'combat');
-  return completeEnterableCombat(nextRun, 'elite');
+  return advanceUntilEnterable(run, 'rest');
 }
 
 function advanceToBoss(run: RunState): RunState {
   let nextRun = advanceToRest(run);
   nextRun = enterMapNode(nextRun, getEnterableNode(nextRun, 'rest').id);
-  return restAtNode(nextRun);
+  nextRun = restAtNode(nextRun);
+  return advanceUntilEnterable(nextRun, 'boss');
 }
 
 function completeEnterableCombat(run: RunState, type: 'combat' | 'elite'): RunState {
@@ -251,12 +259,52 @@ function completeEnterableCombat(run: RunState, type: 'combat' | 'elite'): RunSt
 }
 
 function getEnterableNode(run: RunState, type: MapNodeType) {
-  const node = run.map.find((candidate) => candidate.type === type && canEnterNode(run.map, candidate.id));
+  const node = findEnterableNode(run, type);
   if (!node) {
     throw new Error(`No enterable ${type} node.`);
   }
 
   return node;
+}
+
+function findEnterableNode(run: RunState, type: MapNodeType) {
+  return run.map.find((candidate) => candidate.type === type && canEnterNode(run.map, candidate.id));
+}
+
+function advanceUntilEnterable(run: RunState, type: MapNodeType): RunState {
+  let nextRun = run;
+  let guard = 0;
+  while (!findEnterableNode(nextRun, type) && guard < 60) {
+    guard += 1;
+    nextRun = completeFirstEnterableNode(nextRun);
+  }
+  return nextRun;
+}
+
+function completeFirstEnterableNode(run: RunState): RunState {
+  const node = run.map.find((candidate) => candidate.type !== 'boss' && canEnterNode(run.map, candidate.id));
+  if (!node) {
+    throw new Error('No enterable non-boss node.');
+  }
+
+  if (node.type === 'rest') {
+    return restAtNode(enterMapNode(run, node.id));
+  }
+
+  if (node.type === 'shop') {
+    return leaveShopNode(enterMapNode(run, node.id));
+  }
+
+  if (node.type === 'event') {
+    const eventRun = enterMapNode(run, node.id);
+    const choice = eventRun.currentEvent?.choices.find((candidate) => candidate.status === 'available');
+    return choice ? resolveEventChoice(eventRun, choice.id) : eventRun;
+  }
+
+  let nextRun = enterMapNode(run, node.id);
+  nextRun = forceVictory(nextRun);
+  nextRun = completeCombatNode(nextRun);
+  return skipCardReward(nextRun);
 }
 
 function forceVictory(run: RunState): RunState {

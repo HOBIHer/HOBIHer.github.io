@@ -45,7 +45,8 @@ export function createUpgradedCardDefinition(card: CardDefinition): CardDefiniti
 }
 
 export function canUpgradeCardInstance(card: CardInstance): boolean {
-  return !card.upgraded && Boolean(warriorCardById[card.definitionId]);
+  const definition = warriorCardById[card.definitionId];
+  return !card.upgraded && Boolean(definition) && definition.type !== 'curse';
 }
 
 export function upgradeCardInstance(card: CardInstance): CardInstance {
@@ -117,7 +118,11 @@ function upgradeEffect(effect: CardEffect, cardType: CardType): CardEffect {
 }
 
 function normalizeCost(cost: CardCost): CardCost {
-  return cost === 'X' ? 'X' : Math.max(0, cost);
+  if (cost === 'X' || cost === 'unplayable') {
+    return cost;
+  }
+
+  return Math.max(0, cost);
 }
 
 function addDamageBonus(effects: CardEffect[], bonus: number): CardEffect[] {
@@ -273,6 +278,9 @@ function statusName(status: StatusId, mode: 'normal' | 'stealth'): string {
     regen: '恢复',
     bleed: '持续风险',
     barrierLock: '缓冲锁定',
+    plating: '周期缓冲',
+    buffer: '拦截',
+    ritual: '周期增幅',
   };
 
   return stealthNames[status] ?? statusDefinitions[status].label;

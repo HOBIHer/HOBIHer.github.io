@@ -27,7 +27,7 @@ export function Hand({ cards, energy, mode = 'normal', targetEnemyId, onPlay }: 
             key={cardInstance.instanceId}
             card={card}
             mode={mode}
-            disabled={card.cost !== 'X' && card.cost > energy}
+            disabled={card.cost === 'unplayable' || (card.cost !== 'X' && card.cost > energy)}
             onClick={() => onPlay(cardInstance.instanceId, targetEnemyId)}
           />
         );

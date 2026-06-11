@@ -20,11 +20,6 @@ export const blockedV130Cards: BlockedV130Card[] = [
     reason: 'Giant Rock/Giant Rock+ 未定义费用、类型和效果；不能脑补 token 行为。',
   },
   {
-    row: 72,
-    sourceEffect: '获得 4 Plating。',
-    reason: 'Plating 未在表格或现有机制中定义具体规则。',
-  },
-  {
     row: 75,
     sourceEffect: '你受到来自敌人的伤害翻倍；盟友受到来自敌人的伤害减半。',
     reason: '效果要求盟友单位，冲突于 PRODUCT_SPEC.md 的单人战斗模型。',
@@ -1298,6 +1293,24 @@ export const v130Cards: CardDefinition[] = [
       description: '每回合开始时获得 2 能量。',
       lowProfileDescription: '每周期开始时获得 2 点配额。',
       effects: [{ type: 'applyStatus', status: 'startTurnEnergy', amount: 2, target: 'player' }],
+    },
+  }),
+  card({
+    id: 'v150-plated-oath',
+    name: '镀誓',
+    lowProfileName: '周期缓冲协议',
+    type: 'power',
+    rarity: 'uncommon',
+    cost: 1,
+    target: 'self',
+    description: '获得 4 层镀层。',
+    lowProfileDescription: '获得 4 层周期缓冲。',
+    effects: [{ type: 'applyStatus', status: 'plating', amount: 4, target: 'player' }],
+    upgrade: {
+      cost: 1,
+      description: '获得 6 层镀层。',
+      lowProfileDescription: '获得 6 层周期缓冲。',
+      effects: [{ type: 'applyStatus', status: 'plating', amount: 6, target: 'player' }],
     },
   }),
   card({

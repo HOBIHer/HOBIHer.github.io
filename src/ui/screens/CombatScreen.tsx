@@ -7,6 +7,7 @@ import { Hand } from '../components/Hand';
 import { PileInfo } from '../components/PileInfo';
 import { PotionBar } from '../components/PotionBar';
 import { PlayerPanel } from '../components/PlayerPanel';
+import { RelicBar } from '../components/RelicBar';
 import { getTerminology } from '../terminology/terminology';
 
 export function CombatScreen() {
@@ -107,6 +108,7 @@ export function CombatScreen() {
       </section>
 
       <section className="combat-footer">
+        <RelicBar mode={settings.mode} relicIds={run.relics} />
         <PotionBar
           disabled={combat.phase !== 'player'}
           mode={settings.mode}

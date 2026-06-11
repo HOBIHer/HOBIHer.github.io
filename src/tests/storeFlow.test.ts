@@ -17,8 +17,15 @@ describe('game store flow', () => {
     });
   });
 
-  it('starts at the map, enters combat, claims a reward, and returns to the map', () => {
+  it('starts at the act event, enters combat, claims a reward, and returns to the map', () => {
     useGameStore.getState().startNewRun('store-flow');
+    const eventState = useGameStore.getState();
+
+    expect(eventState.screen).toBe('event');
+    expect(eventState.run?.currentEvent?.kind).toBe('major');
+
+    const openingChoice = eventState.run!.currentEvent!.choices.find((choice) => choice.status === 'available')!;
+    useGameStore.getState().chooseEventChoice(openingChoice.id);
     const mapState = useGameStore.getState();
     const firstNode = mapState.run!.map[0];
 

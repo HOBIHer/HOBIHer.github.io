@@ -11,6 +11,9 @@ const normalDescriptions: Partial<Record<StatusId, string>> = {
   regen: '回合结束时回复生命，然后减少一层。',
   bleed: '回合结束时失去生命，然后减少一层。',
   barrierLock: '下个回合开始时保留当前格挡，然后减少一层。',
+  plating: '回合结束时获得等同层数的格挡；你的回合开始时减少一层。',
+  buffer: '防止下一次失去生命，然后减少一层。',
+  ritual: '回合结束时获得等同层数的力量。',
 };
 
 const stealthDescriptions: Partial<Record<StatusId, string>> = {
@@ -24,6 +27,9 @@ const stealthDescriptions: Partial<Record<StatusId, string>> = {
   regen: '周期结束时恢复稳定度，然后减少一层。',
   bleed: '周期结束时损失稳定度，然后减少一层。',
   barrierLock: '下个周期开始时保留当前缓冲，然后减少一层。',
+  plating: '周期结束时生成等同层数的缓冲；周期开始时减少一层。',
+  buffer: '防止下一次稳定度下降，然后减少一层。',
+  ritual: '周期结束时获得等同层数的推进增幅。',
 };
 
 export function getStatusDescription(status: StatusId, mode: GameMode = 'normal'): string {

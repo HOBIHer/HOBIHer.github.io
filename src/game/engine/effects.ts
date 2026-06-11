@@ -15,6 +15,7 @@ import type {
   StatusId,
   StatusMap,
 } from '../types';
+import { getAscensionEnemyDamage } from './ascension';
 import { getBaseCardDefinition, getEffectiveCardDefinition } from './cardUpgrades';
 import { discardFromHand, drawCards, type DrawCardsOptions } from './deck';
 
@@ -47,6 +48,10 @@ export function getCardPlayCost(
   cardInstance: CardInstance,
   card: CardDefinition = getCardDefinitionForInstance(cardInstance),
 ): number {
+  if (card.cost === 'unplayable') {
+    return 0;
+  }
+
   if (typeof cardInstance.costOverride === 'number') {
     return Math.max(0, cardInstance.costOverride);
   }
@@ -77,6 +82,20 @@ export function getCardXValue(
 }
 
 export function getCardPlayBlockReason(combat: CombatState, card: CardDefinition): string | undefined {
+  if (card.keywords?.includes('unplayable') || card.cost === 'unplayable') {
+    return card.type === 'curse' ? '这张诅咒不能打出。' : '这张牌不能打出。';
+  }
+
+  const enthralled = combat.hand.find((candidate) => candidate.definitionId === 'curse-enthralled');
+  if (enthralled && card.id !== 'curse-enthralled') {
+    return '必须先打出迷缚。';
+  }
+
+  const hasNormality = combat.hand.some((candidate) => candidate.definitionId === 'curse-normality');
+  if (hasNormality && combat.turnStats.cardsPlayed >= 3) {
+    return '常态枷锁限制本回合最多打出 3 张牌。';
+  }
+
   const exhaustRequirement = card.effects.find((effect) => effect.type === 'requireExhaustPileAtLeast');
   if (exhaustRequirement && combat.exhaustPile.length < exhaustRequirement.amount) {
     return `消耗堆中至少需要 ${exhaustRequirement.amount} 张牌。`;
@@ -99,6 +118,10 @@ export function calculateAttackDamage(
 
   if (getStatus(attacker, 'weak') > 0) {
     amount = Math.floor(amount * (statusDefinitions.weak.attackDamageDealtMultiplier ?? 1));
+  }
+
+  if (getStatus(attacker, 'enemyAttackDown30') > 0) {
+    amount = Math.floor(amount * 0.7);
   }
 
   if (getStatus(defender, 'vulnerable') > 0) {
@@ -143,13 +166,37 @@ export function dealDamage(target: CombatantState, amount: number): {
   blocked: number;
 } {
   const blocked = Math.min(target.block, amount);
-  const hpLoss = Math.min(target.hp, Math.max(0, amount - blocked));
+  const pendingHpLoss = Math.min(target.hp, Math.max(0, amount - blocked));
+  const buffer = getStatus(target, 'buffer');
+  if (pendingHpLoss > 0 && buffer > 0) {
+    return {
+      target: setStatus(
+        {
+          ...target,
+          block: target.block - blocked,
+        },
+        'buffer',
+        buffer - 1,
+      ),
+      hpLoss: 0,
+      blocked,
+    };
+  }
+
+  const slippery = getStatus(target, 'slippery');
+  const intangible = getStatus(target, 'intangible');
+  const hpLoss =
+    (slippery > 0 || intangible > 0) && pendingHpLoss > 0
+      ? Math.min(1, pendingHpLoss)
+      : pendingHpLoss;
+  const targetAfterSlippery =
+    slippery > 0 && pendingHpLoss > 0 ? setStatus(target, 'slippery', slippery - 1) : target;
 
   return {
     target: {
-      ...target,
-      block: target.block - blocked,
-      hp: target.hp - hpLoss,
+      ...targetAfterSlippery,
+      block: targetAfterSlippery.block - blocked,
+      hp: targetAfterSlippery.hp - hpLoss,
     },
     hpLoss,
     blocked,
@@ -161,6 +208,14 @@ export function loseHp(target: CombatantState, amount: number): {
   hpLoss: number;
 } {
   const hpLoss = Math.min(target.hp, Math.max(0, amount));
+  const buffer = getStatus(target, 'buffer');
+  if (hpLoss > 0 && buffer > 0) {
+    return {
+      target: setStatus(target, 'buffer', buffer - 1),
+      hpLoss: 0,
+    };
+  }
+
   return {
     target: {
       ...target,
@@ -260,10 +315,55 @@ export function applyTurnEndStatusEffects(target: CombatantState): {
     }
   }
 
+  const corrosiveLeak = getStatus(next, 'corrosiveLeak');
+  if (corrosiveLeak > 0) {
+    const result = loseHp(next, corrosiveLeak);
+    next = result.target;
+    if (result.hpLoss > 0) {
+      log.push(`${target.name} 因流失失去 ${result.hpLoss} 点生命。`);
+    }
+  }
+
+  for (const definition of Object.values(statusDefinitions)) {
+    if (!definition.turnEndHpLossPerStack || definition.id === 'bleed') {
+      continue;
+    }
+
+    const stacks = getStatus(next, definition.id);
+    if (stacks <= 0) {
+      continue;
+    }
+
+    const result = loseHp(next, stacks * definition.turnEndHpLossPerStack);
+    next = result.target;
+    if (result.hpLoss > 0) {
+      log.push(`${target.name} loses ${result.hpLoss} HP from ${definition.label}.`);
+    }
+  }
+
+  const plating = getStatus(next, 'plating');
+  if (plating > 0) {
+    const beforeBlock = next.block;
+    next = addBlock(next, plating);
+    log.push(`${target.name} 通过镀层获得 ${next.block - beforeBlock} 点格挡。`);
+  }
+
+  const ritual = getStatus(next, 'ritual');
+  if (ritual > 0) {
+    next = addStatus(next, 'strength', ritual).target;
+    log.push(`${target.name} 通过仪式获得 ${ritual} 层力量。`);
+  }
+
   const temporaryStrength = getStatus(next, 'temporaryStrength');
   if (temporaryStrength !== 0) {
     next = setStatus(next, 'strength', getStatus(next, 'strength') - temporaryStrength);
     next = setStatus(next, 'temporaryStrength', 0);
+  }
+
+  const temporaryDexterity = getStatus(next, 'temporaryDexterity');
+  if (temporaryDexterity !== 0) {
+    next = setStatus(next, 'dexterity', getStatus(next, 'dexterity') - temporaryDexterity);
+    next = setStatus(next, 'temporaryDexterity', 0);
   }
 
   return {
@@ -392,6 +492,153 @@ export function applyPlayedCardPostEffects(
   return { combat: nextCombat, playedCard: nextPlayedCard };
 }
 
+function applyCurseTurnEndTriggers(combat: CombatState): CombatState {
+  let nextCombat = combat;
+
+  for (const cardInstance of combat.hand) {
+    const definition = getCardDefinitionForInstance(cardInstance);
+    const triggers = definition.curseTriggers?.filter((trigger) => trigger.timing === 'turnEndInHand') ?? [];
+    if (triggers.length === 0) {
+      continue;
+    }
+
+    for (const trigger of triggers) {
+      for (const effect of trigger.effects) {
+        if (effect.type === 'loseHp') {
+          const result = loseHp(nextCombat.player, effect.amount);
+          nextCombat = recordPlayerHpLoss(
+            {
+              ...nextCombat,
+              player: result.target,
+              log: [...nextCombat.log, `${definition.name} 使铁誓者失去 ${result.hpLoss} 点生命。`],
+            },
+            result.hpLoss,
+          );
+        }
+
+        if (effect.type === 'takeDamage') {
+          const result = dealDamage(nextCombat.player, effect.amount);
+          nextCombat = recordPlayerHpLoss(
+            {
+              ...nextCombat,
+              player: result.target,
+              log: [
+                ...nextCombat.log,
+                `${definition.name} 造成 ${effect.amount} 点伤害，${result.blocked} 点被格挡。`,
+              ],
+            },
+            result.hpLoss,
+          );
+        }
+
+        if (effect.type === 'loseGold') {
+          nextCombat = {
+            ...nextCombat,
+            combatStats: {
+            ...nextCombat.combatStats,
+              goldLost: (nextCombat.combatStats.goldLost ?? 0) + effect.amount,
+            },
+            log: [...nextCombat.log, `${definition.name} 记录失去 ${effect.amount} 金币。`],
+          };
+        }
+
+        if (effect.type === 'applyStatus') {
+          const result = addStatus(nextCombat.player, effect.status, effect.amount);
+          nextCombat = {
+            ...nextCombat,
+            player: result.target,
+            log: [
+              ...nextCombat.log,
+              result.prevented
+                ? `${definition.name} 的状态被抵消。`
+                : `${definition.name} 施加 ${effect.amount} 层${statusLabel(effect.status)}。`,
+            ],
+          };
+        }
+
+        if (effect.type === 'loseHpPerHandCard') {
+          const amount = effect.amountPerCard * nextCombat.hand.length;
+          const result = loseHp(nextCombat.player, amount);
+          nextCombat = recordPlayerHpLoss(
+            {
+              ...nextCombat,
+              player: result.target,
+              log: [...nextCombat.log, `${definition.name} 使铁誓者失去 ${result.hpLoss} 点生命。`],
+            },
+            result.hpLoss,
+          );
+        }
+      }
+    }
+  }
+
+  return nextCombat;
+}
+
+function recordPlayerHpLoss(combat: CombatState, hpLoss: number): CombatState {
+  if (hpLoss <= 0) {
+    return combat;
+  }
+
+  return {
+    ...combat,
+    combatStats: {
+      ...combat.combatStats,
+      hpLossEvents: combat.combatStats.hpLossEvents + 1,
+    },
+    turnStats: {
+      ...combat.turnStats,
+      lostHpThisTurn: true,
+    },
+  };
+}
+
+export function applyTurnEndHandRules(
+  combat: CombatState,
+  drawOptions: DrawCardsOptions = {},
+): CombatState {
+  let nextCombat = applyCurseTurnEndTriggers(combat);
+  const retainWholeHand = getStatus(nextCombat.player, 'retainHand') > 0;
+  const retained: CardInstance[] = [];
+  const discarded: CardInstance[] = [];
+  const exhausted: CardInstance[] = [];
+
+  for (const card of nextCombat.hand) {
+    const definition = getCardDefinitionForInstance(card);
+    const ethereal = definition.keywords?.includes('ethereal');
+    const retainedByCard = Boolean(definition.retain || definition.keywords?.includes('retain'));
+
+    if (ethereal) {
+      exhausted.push(card);
+    } else if (retainWholeHand || retainedByCard) {
+      retained.push(card);
+    } else {
+      discarded.push(card);
+    }
+  }
+
+  nextCombat = {
+    ...nextCombat,
+    hand: retained,
+    discardPile: [...nextCombat.discardPile, ...discarded],
+    exhaustPile: [...nextCombat.exhaustPile, ...exhausted],
+    log: [
+      ...nextCombat.log,
+      ...(discarded.length > 0 ? [`弃掉手牌 ${discarded.length} 张。`] : []),
+      ...(retained.length > 0 ? [`保留手牌 ${retained.length} 张。`] : []),
+    ],
+  };
+
+  if (retainWholeHand) {
+    nextCombat = {
+      ...nextCombat,
+      player: addStatus(nextCombat.player, 'retainHand', -1).target,
+    };
+  }
+
+  return exhausted.length > 0 ? recordExhaustedCards(nextCombat, exhausted, drawOptions) : nextCombat;
+}
+
 export function applyAfterCardPlayedPowers(
   combat: CombatState,
   card: CardDefinition,
@@ -400,6 +647,31 @@ export function applyAfterCardPlayedPowers(
   drawOptions: DrawCardsOptions = {},
 ): CombatState {
   let nextCombat = combat;
+
+  const replayCount = Math.max(0, playedCard.replay ?? 0);
+  for (let index = 0; index < replayCount; index += 1) {
+    nextCombat = {
+      ...nextCombat,
+      log: [...nextCombat.log, `${card.name} 通过 Replay 额外打出 1 次。`],
+    };
+    nextCombat = resolveCardEffects(nextCombat, card, targetEnemyId, drawOptions, {
+      playedCard,
+      xValue: 0,
+    });
+  }
+
+  const extraCardPlays = getStatus(nextCombat.player, 'nextCardExtraPlay');
+  if (extraCardPlays > 0) {
+    nextCombat = {
+      ...nextCombat,
+      player: setStatus(nextCombat.player, 'nextCardExtraPlay', extraCardPlays - 1),
+      log: [...nextCombat.log, `${card.name} 额外打出 1 次。`],
+    };
+    nextCombat = resolveCardEffects(nextCombat, card, targetEnemyId, drawOptions, {
+      playedCard,
+      xValue: 0,
+    });
+  }
 
   if (card.type === 'attack') {
     const attackBlock = getStatus(nextCombat.player, 'attackBlockThisTurn');
@@ -436,6 +708,13 @@ export function applyAfterCardPlayedPowers(
         player: setStatus(nextCombat.player, 'nextAttackFree', freeAttacks - 1),
       };
     }
+
+    if (getStatus(nextCombat.player, 'nextAttackDamageMultiplier') > 0) {
+      nextCombat = {
+        ...nextCombat,
+        player: setStatus(nextCombat.player, 'nextAttackDamageMultiplier', 0),
+      };
+    }
   }
 
   return nextCombat;
@@ -447,6 +726,33 @@ export function applyTurnStartCardPowers(combat: CombatState): CombatState {
   const startEnergy = getStatus(nextCombat.player, 'startTurnEnergy');
   if (startEnergy > 0) {
     nextCombat = gainEnergy(nextCombat, '回合配额', startEnergy);
+  }
+
+  const startTurnEnergyNextTurns = getStatus(nextCombat.player, 'startTurnEnergyNextTurns');
+  if (startTurnEnergyNextTurns > 0) {
+    nextCombat = gainEnergy(nextCombat, '周期配额', 1);
+    nextCombat = {
+      ...nextCombat,
+      player: setStatus(nextCombat.player, 'startTurnEnergyNextTurns', startTurnEnergyNextTurns - 1),
+    };
+  }
+
+  const startTurnDraw = getStatus(nextCombat.player, 'startTurnDraw');
+  if (startTurnDraw > 0) {
+    nextCombat = drawCards(nextCombat, 1);
+    nextCombat = {
+      ...nextCombat,
+      player: setStatus(nextCombat.player, 'startTurnDraw', startTurnDraw - 1),
+    };
+  }
+
+  const startTurnBlock = getStatus(nextCombat.player, 'startTurnBlock');
+  if (startTurnBlock > 0) {
+    nextCombat = gainPlayerBlock(nextCombat, startTurnBlock, '下轮缓冲', false);
+    nextCombat = {
+      ...nextCombat,
+      player: setStatus(nextCombat.player, 'startTurnBlock', 0),
+    };
   }
 
   const startStrength = getStatus(nextCombat.player, 'startTurnStrength');
@@ -855,6 +1161,10 @@ function resolveCardEffect(
     };
   }
 
+  if (effect.type === 'setReplayForName') {
+    return applyReplayToMatchingCards(combat, effect.nameIncludes, effect.amount, card.name);
+  }
+
   if (effect.type === 'conditional') {
     const conditionMet = isCardConditionMet(combat, effect.condition, context.targetEnemyId);
     const branchEffects = conditionMet ? effect.effects : effect.elseEffects ?? [];
@@ -873,6 +1183,32 @@ function resolveCardEffect(
   }
 
   return combat;
+}
+
+export function applyReplayToMatchingCards(
+  combat: CombatState,
+  nameIncludes: string,
+  amount: number,
+  sourceName = 'Replay',
+): CombatState {
+  const update = (card: CardInstance): CardInstance => {
+    const definition = getCardDefinitionForInstance(card);
+    const matches =
+      definition.name.includes(nameIncludes) ||
+      definition.lowProfileName.includes(nameIncludes) ||
+      definition.id.includes(nameIncludes) ||
+      (nameIncludes === 'Strike' && isBasicAttackLike(card));
+    return matches ? { ...card, replay: (card.replay ?? 0) + amount } : card;
+  };
+
+  return {
+    ...combat,
+    drawPile: combat.drawPile.map(update),
+    hand: combat.hand.map(update),
+    discardPile: combat.discardPile.map(update),
+    exhaustPile: combat.exhaustPile.map(update),
+    log: [...combat.log, `${sourceName} 赋予匹配牌 Replay ${amount}。`],
+  };
 }
 
 function applyStatusEffect(
@@ -946,7 +1282,11 @@ export function resolveEnemyEffect(
   }
 
   if (effect.type === 'damage') {
-    let amount = calculateAttackDamage(effect.amount, actingEnemy, combat.player);
+    let amount = calculateAttackDamage(
+      getAscensionEnemyDamage(effect.amount, combat.ascensionLevel),
+      actingEnemy,
+      combat.player,
+    );
     if (getStatus(actingEnemy, 'vulnerable') > 0 && getStatus(combat.player, 'vulnerableEnemyDamageReduction') > 0) {
       amount = Math.floor(amount * (1 - getStatus(combat.player, 'vulnerableEnemyDamageReduction') / 100));
     }
@@ -983,6 +1323,18 @@ export function resolveEnemyEffect(
       });
     }
 
+    return nextCombat;
+  }
+
+  if (effect.type === 'damageRepeated') {
+    let nextCombat = combat;
+    for (let index = 0; index < effect.times; index += 1) {
+      nextCombat = resolveEnemyEffect(nextCombat, enemyId, {
+        type: 'damage',
+        amount: effect.amount,
+        target: effect.target,
+      });
+    }
     return nextCombat;
   }
 
@@ -1051,7 +1403,9 @@ function damageEnemy(
   baseAmount: number,
 ): CombatState {
   return updateEnemy(combat, targetEnemyId, (enemy) => {
-    const amount = calculateAttackDamage(baseAmount, combat.player, enemy);
+    const multiplier =
+      card.type === 'attack' ? Math.max(1, getStatus(combat.player, 'nextAttackDamageMultiplier')) : 1;
+    const amount = calculateAttackDamage(baseAmount * multiplier, combat.player, enemy);
     const result = dealDamage(enemy, amount);
     let nextPlayer = combat.player;
     let thornLog = '';
@@ -1232,7 +1586,7 @@ function playTopCards(
   return nextCombat;
 }
 
-function playCardInstanceForFree(
+export function playCardInstanceForFree(
   combat: CombatState,
   cardInstance: CardInstance,
   targetEnemyId?: string,
@@ -1253,6 +1607,7 @@ function playCardInstanceForFree(
   const shouldExhaust =
     card.type === 'power' ||
     forceExhaust ||
+    card.keywords?.includes('exhaust') ||
     Boolean(cardInstance.exhaustOnPlay) ||
     card.effects.some((effect) => effect.type === 'exhaustSelf');
   nextCombat = {
@@ -1267,6 +1622,8 @@ function playCardInstanceForFree(
       powersPlayed: card.type === 'power' ? nextCombat.turnStats.powersPlayed + 1 : nextCombat.turnStats.powersPlayed,
     },
   };
+
+  nextCombat = applyAfterCardPlayedPowers(nextCombat, card, cardInstance, targetEnemyId, drawOptions);
 
   return shouldExhaust ? recordExhaustedCards(nextCombat, [cardInstance], drawOptions) : nextCombat;
 }

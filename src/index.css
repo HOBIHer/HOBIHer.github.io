@@ -173,7 +173,8 @@ h3 {
 .primary-button:disabled,
 .secondary-button:disabled,
 .end-turn-button:disabled,
-.card-button:disabled {
+.card-button:disabled,
+.card-button[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
@@ -369,6 +370,16 @@ h3 {
   background: var(--app-card-power);
 }
 
+.card-button.curse {
+  border-color: #8a4f5f;
+  background: #f3dde2;
+}
+
+.mode-stealth .card-button.curse {
+  border-color: var(--app-border);
+  background: var(--app-chip);
+}
+
 .card-header {
   display: flex;
   align-items: start;
@@ -399,9 +410,41 @@ h3 {
 }
 
 .card-description {
+  position: relative;
   margin: 0;
   color: var(--app-muted);
   font-size: 0.92rem;
+}
+
+.mechanic-keyword {
+  position: relative;
+  border-bottom: 1px dotted currentcolor;
+  color: var(--app-text);
+  cursor: help;
+  outline-offset: 2px;
+}
+
+.mechanic-keyword:hover::after,
+.mechanic-keyword:focus-visible::after {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: min(260px, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  color: var(--app-text);
+  background: var(--app-panel);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+  content: attr(data-tooltip);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.mechanic-keyword:focus-visible {
+  outline: 2px solid var(--app-accent);
 }
 
 .log-panel {
@@ -524,6 +567,10 @@ h3 {
   background: var(--app-chip);
 }
 
+.map-node-event {
+  background: color-mix(in srgb, var(--app-panel-strong) 78%, #d9e7d2);
+}
+
 .map-node-index {
   display: grid;
   width: 32px;
@@ -599,11 +646,57 @@ h3 {
   font-weight: 800;
 }
 
+.rest-result-details {
+  display: grid;
+  gap: 5px;
+}
+
 .relic-description {
   display: block;
   margin-top: 4px;
   color: var(--app-muted);
   font-size: 0.85rem;
+}
+
+.relic-bar {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel);
+}
+
+.relic-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--app-muted);
+  font-size: 0.9rem;
+}
+
+.relic-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.relic-chip,
+.relic-empty {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-chip);
+}
+
+.relic-chip {
+  max-width: 260px;
+  outline-offset: 2px;
+}
+
+.relic-chip:focus-visible {
+  outline: 2px solid var(--app-accent);
 }
 
 .rest-summary {
@@ -752,6 +845,86 @@ h3 {
   justify-content: flex-end;
 }
 
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin: 18px 0 24px;
+}
+
+.event-choice-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.event-choice-button {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  color: var(--app-text);
+  background: var(--app-panel-strong);
+  text-align: left;
+}
+
+.event-choice-button[data-status="locked"],
+.event-choice-button[data-status="blocked"] {
+  opacity: 0.62;
+}
+
+.event-choice-status {
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--app-muted);
+  background: var(--app-chip);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.event-result {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-chip);
+}
+
+.event-result p {
+  margin: 0;
+}
+
+.shop-item {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.shop-item-button {
+  min-height: 170px;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-strong);
+  color: var(--app-text);
+  text-align: left;
+}
+
+.shop-item-button span {
+  display: block;
+  color: var(--app-muted);
+  line-height: 1.35;
+}
+
+.shop-item[data-sold="true"] {
+  opacity: 0.62;
+}
+
 .reward-choice[data-selected="true"] .card-button,
 .relic-choice-list button[data-selected="true"] {
   border-color: var(--app-accent);
@@ -815,6 +988,12 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.ascension-picker {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
 }
 
 .settings-shell {

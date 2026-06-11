@@ -1,4 +1,6 @@
+import { ASCENSION_RESTRICTIONS } from '../../game/engine/ascension';
 import { useGameStore } from '../../game/store/useGameStore';
+import type { AscensionLevel } from '../../game/types';
 import { getTerminology } from '../terminology/terminology';
 
 export function MainMenu() {
@@ -7,6 +9,9 @@ export function MainMenu() {
   const openSettings = useGameStore((state) => state.openSettings);
   const openRunHistory = useGameStore((state) => state.openRunHistory);
   const canContinueRun = useGameStore((state) => state.canContinueRun);
+  const ascensionProgress = useGameStore((state) => state.ascensionProgress);
+  const selectedAscensionLevel = useGameStore((state) => state.selectedAscensionLevel);
+  const setSelectedAscensionLevel = useGameStore((state) => state.setSelectedAscensionLevel);
   const settings = useGameStore((state) => state.settings);
   const terminology = getTerminology(settings.mode);
   const copy =
@@ -20,6 +25,36 @@ export function MainMenu() {
         <p className="eyebrow">{terminology.menuEyebrow}</p>
         <h1 className="menu-title">{terminology.menuTitle}</h1>
         <p className="menu-copy">{copy}</p>
+        <section className="ascension-picker" aria-label={settings.mode === 'stealth' ? '流程层级' : '进阶等级'}>
+          <div className="reward-summary">
+            <span className="pile-chip">
+              {settings.mode === 'stealth' ? '已解锁层级' : '已解锁进阶'} {ascensionProgress.unlockedLevel}
+            </span>
+            <span className="pile-chip">
+              {settings.mode === 'stealth' ? '选择层级' : '选择进阶'} {selectedAscensionLevel}
+            </span>
+          </div>
+          <div className="button-row">
+            {Array.from({ length: ascensionProgress.unlockedLevel + 1 }).map((_, level) => (
+              <button
+                className={level === selectedAscensionLevel ? 'primary-button' : 'secondary-button'}
+                key={level}
+                onClick={() => setSelectedAscensionLevel(level as AscensionLevel)}
+              >
+                A{level}
+              </button>
+            ))}
+          </div>
+          {selectedAscensionLevel > 0 ? (
+            <p className="settings-note">
+              {ASCENSION_RESTRICTIONS.filter((restriction) => restriction.level <= selectedAscensionLevel)
+                .map((restriction) =>
+                  settings.mode === 'stealth' ? restriction.lowProfileLabel : restriction.label,
+                )
+                .join(' / ')}
+            </p>
+          ) : null}
+        </section>
         <div className="button-row">
           {canContinueRun ? (
             <button className="primary-button" onClick={continueRun}>

@@ -189,7 +189,7 @@ Updated on 2026-06-09.
 
 | Mechanic | Status | Notes |
 | --- | --- | --- |
-| `v1.3.0 card batch` | Implemented | 83 local Iron Oath cards from `docs/content_requests/CARD_BATCH_1.3.0.md` were implemented with original ids, names, low-profile names, descriptions, explicit upgrades, and reward-pool inclusion for non-basic cards. Rows 27, 60, 72, and 75 are blocked in `PROGRESS.md`. |
+| `v1.3.0 card batch` | Implemented | 84 local Iron Oath cards from `docs/content_requests/CARD_BATCH_1.3.0.md` are implemented with original ids, names, low-profile names, descriptions, explicit upgrades, and reward-pool inclusion for non-basic cards. Row 72 was unblocked in v1.5.0 through `Plating`; rows 27, 60, and 75 remain blocked in `PROGRESS.md`. |
 | `CardCost: X` | Implemented | Cards can declare `cost: 'X'`. Playing an X-cost card spends current energy and passes the spent value to X-scaling effects. Covered by `v130-x-wide-storm` tests. |
 | `basic` and `ancient` rarities | Implemented | `basic` cards are excluded from reward pools. `ancient` cards are reward-eligible with low card reward weight. |
 | `innate` | Implemented | Upgraded cards can declare `innate`, causing them to enter the opening hand before normal opening draw fills to hand size. |
@@ -204,6 +204,73 @@ Updated on 2026-06-09.
 | `power card resolution` | Implemented | Power cards now leave the combat cycle when played as a type rule, matching persistent ability behavior while keeping rule logic in the engine. |
 | `low-profile card display` | Verified | New cards render `lowProfileName` and `lowProfileDescription` in stealth mode through existing `CardView` behavior. |
 | `v1.3.0 validation tests` | Implemented | `src/tests/v130CardBatch.test.ts` validates batch row counts, blocked rows, unique ids, complete fields, upgrades, reward eligibility, low-profile rendering, all-card play smoke coverage, and representative new mechanisms. |
+
+## v1.4.0 Potion, Ascension, Map, Shop, and Starter Relic Update
+
+Updated on 2026-06-10.
+
+| Mechanic | Status | Notes |
+| --- | --- | --- |
+| `potion rarity` | Implemented | Potion definitions now include `common`, `uncommon`, `rare`, `event`, or `token`; reward/shop pools exclude event and token entries. |
+| `potion target` | Expanded | Potions can target `self`, `enemy`, `allEnemies`, or `none`. Selection-only request rows that require choose-one/choose-any UI are blocked in `PROGRESS.md`. |
+| `enemyAttackDown30` | Implemented | Negative enemy status. While active, enemy attack damage is multiplied by 0.7 and decays at that enemy's turn end. |
+| `startTurnDraw` | Implemented | Player status. At player turn start, draw 1, then reduce the stack by 1. |
+| `startTurnEnergyNextTurns` | Implemented | Player status. At player turn start, gain 1 energy, then reduce the stack by 1. |
+| `startTurnBlock` | Implemented | Player status. At player turn start, gain block equal to the stack amount, then clear the status. |
+| `corrosiveLeak` | Implemented | Negative status. At owner turn end, the owner loses HP equal to stacks without reducing stacks. |
+| `temporaryDexterity` | Implemented | Tracks temporary dexterity granted this turn and removes it at owner turn end, mirroring temporary strength behavior. |
+| `retainHand` | Implemented | Player status. End-turn cleanup skips discarding the hand while stacks remain, then reduces stacks by 1. |
+| `nextCardExtraPlay` | Implemented | The next played card resolves its effects one additional time, then consumes the stack. |
+| `nextAttackDamageMultiplier` | Implemented | The next attack card multiplies its base damage by the stored multiplier, then clears the status. |
+| `deathWard` potion effect | Implemented | Passive potion effect. If combat would be lost while this potion is held, it is discarded and HP is set to a percent of max HP. |
+| `fillPotionSlots` potion effect | Implemented | Fills empty potion slots with deterministic random potion instances from the local potion pool. |
+| `shop` node | Implemented | Shop nodes create deterministic local inventories of cards, relics, and potions. Purchases spend gold, mark items sold, and full potion slots block potion purchases safely. |
+| `ascension` | Implemented | Global local progression unlocks levels 0-10. Starting a run can select any unlocked level. Higher levels stack all lower restrictions. |
+| `ascension restrictions` | Implemented | A1 adds extra elites; A2 reduces rest healing; A3 reduces gold; A4 starts with 2 potion slots; A5 adds a burden card; A6 increases shop removal price; A7 lowers rare/ancient card weights; A8 raises enemy HP; A9 raises enemy damage; A10 doubles the final boss encounter. |
+| `expanded DAG map` | Implemented | Act 1 now uses a deterministic 14-layer DAG with multiple starts, branches, merges, re-branches, shop nodes, rest nodes, elites, combats, and one final boss endpoint. |
+| `afterglow-charm` | Implemented | Starter relic for the current default Iron Oath class, named `余息护符` / `恢复凭证`. On victory, heals 3 HP without exceeding max HP. Marked starter-only for ordinary relic rewards. |
+| `local save v4` | Implemented | Active runs now normalize ascension level, shop state, current shop, shop screen, and combat ascension level. Ascension unlock progress is stored locally under its own versioned key. |
+
+Blocked potion rows from `docs/content_requests/potion_BATCH_1.4.0.md` are documented in `PROGRESS.md`; the common reason is missing choice UI or undefined requested mechanics such as `Forge`, event merchant targeting, token ownership, or the absent `Regent` class. Rows formerly blocked only by `Plating`, `Buffer`, `Ritual`, or `Replay` were unblocked in v1.5.0.
+
+## v1.5.0 Mechanism, Curse, Event, and Three-Act Update
+
+Updated on 2026-06-10.
+
+| Mechanic | Status | Notes |
+| --- | --- | --- |
+| `plating` | Implemented | Player status. At end of player turn, gain block equal to stacks; at the next player turn start, reduce stacks by 1. It is not permanent across combats. |
+| `buffer` | Implemented | Player status. Prevents the next direct HP-loss event, including attack damage that reaches HP or HP-loss effects, then removes one stack. |
+| `ritual` | Implemented | Player status. At end of player turn, gain strength equal to stacks. Stacks persist for the current combat. |
+| `Replay` | Implemented | Combat-local card modifier. A card with `replay: X` resolves its effects X extra times when played, after normal play validation and cost payment. |
+| `setReplayForName` | Implemented | Typed effect descriptor used by v1.5 potion content to apply Replay to matching cards by id, normal name, low-profile name, or starter Strike-like ids. |
+| `curse` cards | Implemented | Curse cards use `type: 'curse'`, `rarity: 'curse'`, and default `cost: 'unplayable'`. They enter normal deck, draw, hand, discard, retain, and exhaust flows but cannot be actively played unless future content explicitly changes that. |
+| `curse triggers` | Implemented | Curse definitions can trigger at combat start, draw, turn end, retained-in-hand cleanup, or other local timings. Current tests cover turn-end HP/gold loss, self-exhaust, retain, Normality play limit, and Writhe opening-hand behavior. |
+| `event` node | Implemented | Maps can include event nodes. The engine selects a deterministic minor event, stores an event-start snapshot, resolves typed choice effects, marks the node complete, and records run log entries. |
+| `major event` | Implemented | Each act starts on an event screen. Act 1 uses a deterministic opening pool with two positive choices and one cost choice. Act 2 and Act 3 use recovery major events because the request did not define new act-specific opening choice pools. |
+| `minor event` | Implemented | Event nodes select from the minor event pool without repeating seen events where possible. Events with no currently executable choice are skipped; if every event is unavailable, a safe continue fallback is generated instead of blocking the run. |
+| `event effects` | Implemented | Supported event effects include HP/gold changes, max HP, potion slots, random potions, relic gain/removal, card add/remove/upgrade/transform/downgrade, and curse add/random curse. Missing secondary choice or undefined-object effects remain blocked in data. |
+| `three-act run` | Implemented | Runs now progress through acts 1, 2, and 3. Each act has its own deterministic map and boss. Act transitions heal to at least 90% max HP, open a major event, and generate a new map. Defeating the act 3 boss completes victory and unlocks the next ascension level. |
+| `deterministic continue` | Implemented | Combat, shop, and event screens keep start snapshots. Returning to the main menu and continuing restores the screen-start state and seed, so shop inventory and event choices cannot be rerolled by menu reload. |
+| `local save v5` | Implemented | Active runs normalize event state, seen event ids, event/shop start snapshots, curse card fields, Replay modifiers, event map nodes, and curse-related combat stats while keeping legacy save fallback. |
+
+## v1.6.0 Enemy Pool and Enemy Mechanics Update
+
+Updated on 2026-06-11.
+
+| Mechanic | Status | Notes |
+| --- | --- | --- |
+| `act` enemy groups | Implemented | `EnemyGroupDefinition` now includes `act` and `nodeType`. Combat, elite, and boss nodes select only from the current act's matching pool. Boss nodes store a seed-determined act-specific boss group on map creation. |
+| `EnemyDefinition.initialStatuses` | Implemented | Enemy definitions can declare initial combat statuses. Combatant creation copies those statuses into the enemy state before opening hand draw and relic triggers finish. |
+| enemy `damageRepeated` | Implemented | Enemy moves can resolve a typed repeated damage effect. Each hit uses normal enemy damage calculation, block, Buffer, Slippery, Intangible, Thorns, counterattack, and ascension damage rules. |
+| `slippery` | Implemented | When a combatant with Slippery would lose HP from an attack hit, that hit's HP loss is capped at 1 and one Slippery stack is consumed. Blocked hits do not consume Slippery. |
+| `intangible` | Implemented | When a combatant with Intangible would lose HP from an attack hit, that hit's HP loss is capped at 1. It follows normal status decay timing instead of consuming on each hit. |
+| `stun` / `slumber` | Implemented for enemies | An enemy with Stun or Slumber skips its current action, consumes one stack, advances its move cycle, and remains targetable/alive. |
+| generic end-turn HP-loss statuses | Implemented | Statuses with `turnEndHpLossPerStack`, such as Constrict, Burn pollution, and Toxic, now use the shared end-turn status loop. Bleed keeps its existing named path. |
+| v1.6 marker statuses | Registered | Slow, Tangled, Tender, Spawned, Curl Up, Reattach, Vital Spark, Personal Hive, Sandpit, Galvanic, Stock, Paper Cuts, Plow, Ringing, Chains, Painful Stabs, Nemesis, Slimed/Dazed/Wound pollution, and Infection are typed status ids with UI-safe labels. Some are currently marker/status-pressure implementations rather than full bespoke subsystems. |
+| low-profile enemy intent labels | Implemented | Enemy panels in stealth mode use neutral intent labels such as `Advance`, `Buffer`, `Marker`, `Combined`, and `Pending` instead of raw combat labels. |
+
+Blocked or limited v1.6 enemy sub-mechanics are tracked in `PROGRESS.md`. They are not implemented as hidden UI logic: unsupported pieces such as dynamic summons, on-death spawning, exact multi-phase boss scripts, forced permanent choice prompts, permanent max-HP loss from unblocked hits, resource theft, and real status-card deck pollution are represented only by typed statuses/effects for this batch.
 
 ## Naming Note
 

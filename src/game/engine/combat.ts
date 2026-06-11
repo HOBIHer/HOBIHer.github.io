@@ -1,7 +1,8 @@
 import { normalTrainingEnemies, trainingEnemies } from '../data/enemies/training';
-import { ironOathStarterDeck } from '../data/starterDecks';
+import { ironOathStarterLoadout } from '../data/starterDecks';
 import { normalizeSeed, shuffle } from '../rng';
 import type {
+  AscensionLevel,
   CardDefinition,
   CardType,
   CombatPhase,
@@ -12,12 +13,15 @@ import type {
   EnemyDefinition,
   RelicId,
   RunState,
+  StatusId,
 } from '../types';
-import { createCardInstances, createDeckCardInstances, discardEntireHand, drawCards, type DrawCardsOptions } from './deck';
+import { getAscensionEnemyMaxHp } from './ascension';
+import { createCardInstances, createDeckCardInstances, drawCards, type DrawCardsOptions } from './deck';
 import {
   applyAfterCardPlayedPowers,
   applyDrawnCardTriggers,
   applyPlayedCardPostEffects,
+  applyTurnEndHandRules,
   applyTurnEndCardPowers,
   applyTurnStartCardPowers,
   applyTurnEndStatusEffects,
@@ -36,8 +40,13 @@ import { resolveRelicTriggers } from './relics';
 export const STARTING_MAX_HP = 72;
 export const STARTING_ENERGY = 3;
 export const STARTING_HAND_SIZE = 5;
+export const STARTING_RELICS: RelicId[] = [...ironOathStarterLoadout.relics];
 
-export function startRun(seed: number | string = Date.now(), relics: RelicId[] = []): RunState {
+export function startRun(
+  seed: number | string = Date.now(),
+  relics: RelicId[] | undefined = STARTING_RELICS,
+  ascensionLevel: AscensionLevel = 0,
+): RunState {
   const rngSeed = normalizeSeed(seed);
   const runStartedAt = new Date().toISOString();
   return {
@@ -53,8 +62,8 @@ export function startRun(seed: number | string = Date.now(), relics: RelicId[] =
       maxHp: STARTING_MAX_HP,
       gold: 0,
     },
-    deck: createDeckCardInstances(ironOathStarterDeck, `deck-${rngSeed}`),
-    relics: [...relics],
+    deck: createDeckCardInstances(ironOathStarterLoadout.deck, `deck-${rngSeed}`),
+    relics: uniqueRelics(relics ?? STARTING_RELICS),
     potions: [],
     potionSlots: 3,
     combatsWon: 0,
@@ -63,6 +72,9 @@ export function startRun(seed: number | string = Date.now(), relics: RelicId[] =
     act: 1,
     floor: 1,
     runStartedAt,
+    ascensionLevel,
+    shops: {},
+    seenEventIds: [],
     runLog: [],
   };
 }
@@ -78,11 +90,14 @@ export function startCombat(
   const cardInstances = createCardInstances(run.deck, `combat-${run.combatsWon}`);
   const shuffled = shuffle(cardInstances, run.rngSeed);
   const enemyDefinitions = Array.isArray(enemyDefinition) ? enemyDefinition : [enemyDefinition];
-  const enemies = enemyDefinitions.map((definition, index) => createEnemyCombatant(definition, index));
+  const enemies = enemyDefinitions.map((definition, index) =>
+    createEnemyCombatant(definition, index, run.ascensionLevel),
+  );
   const encounterName = enemies.map((enemy) => enemy.name).join('、');
   const baseCombat: CombatState = {
     id: `${run.id}-combat-${run.combatsWon + 1}`,
     rngSeed: shuffled.seed,
+    ascensionLevel: run.ascensionLevel,
     turn: 1,
     phase: 'player',
     player: {
@@ -103,6 +118,7 @@ export function startCombat(
     turnStats: createTurnStats(),
     combatStats: {
       hpLossEvents: 0,
+      goldLost: 0,
     },
     log: [`遭遇 ${encounterName}。`],
   };
@@ -176,6 +192,7 @@ export function playCard(
 
   const shouldExhaust =
     card.type === 'power' ||
+    card.keywords?.includes('exhaust') ||
     Boolean(resolvedPlayedCard.exhaustOnPlay) ||
     (card.type === 'skill' && getStatus(nextCombat.player, 'skillZeroExhaust') > 0) ||
     card.effects.some((effect) => effect.type === 'exhaustSelf');
@@ -215,7 +232,7 @@ export function endPlayerTurn(combat: CombatState): CombatState {
     log: [...combat.log, '结束回合。'],
   });
 
-  nextCombat = discardEntireHand(nextCombat);
+  nextCombat = applyTurnEndHandRules(nextCombat, createDrawOptions());
   nextCombat = resolveRelicTriggers(nextCombat, 'onTurnEnd');
   nextCombat = applyPlayerTurnEndStatuses(nextCombat);
 
@@ -259,6 +276,22 @@ function resolveEnemyTurn(combat: CombatState): CombatState {
     }
 
     nextCombat = appendLog(nextCombat, `${enemy.name} 使用 ${move.name}。`);
+
+    const skipStatus =
+      getStatus(enemy, 'stun') > 0 ? 'stun' : getStatus(enemy, 'slumber') > 0 ? 'slumber' : undefined;
+    if (skipStatus) {
+      nextCombat = appendLog(nextCombat, `${enemy.name} skips an action.`);
+      nextCombat = {
+        ...nextCombat,
+        enemies: nextCombat.enemies.map((candidate) =>
+          candidate.instanceId === enemy.instanceId
+            ? setCombatantStatus(candidate, skipStatus, getStatus(candidate, skipStatus) - 1)
+            : candidate,
+        ),
+      };
+      nextCombat = advanceEnemyMove(nextCombat, enemy.instanceId, definition);
+      continue;
+    }
 
     for (const effect of move.effects) {
       const aliveBefore = getAliveEnemyIds(nextCombat);
@@ -380,16 +413,18 @@ function checkCombatEnd(combat: CombatState): CombatState {
 function createEnemyCombatant(
   definition: EnemyDefinition,
   index: number,
+  ascensionLevel: AscensionLevel,
 ): EnemyCombatantState {
+  const maxHp = getAscensionEnemyMaxHp(definition.maxHp, ascensionLevel);
   return {
     instanceId: `${definition.id}-${index}`,
     definitionId: definition.id,
     name: definition.name,
     lowProfileName: definition.lowProfileName,
-    hp: definition.maxHp,
-    maxHp: definition.maxHp,
+    hp: maxHp,
+    maxHp,
     block: 0,
-    statuses: {},
+    statuses: { ...(definition.initialStatuses ?? {}) },
     moveIndex: 0,
     intent: definition.moves[0].intent,
     defeated: false,
@@ -531,6 +566,24 @@ function appendLog<T extends { log: string[]; phase?: CombatPhase; player?: Comb
     ...state,
     log: [...state.log, entry],
   };
+}
+
+function setCombatantStatus<T extends CombatantState>(target: T, status: StatusId, amount: number): T {
+  const statuses = { ...target.statuses };
+  if (amount <= 0) {
+    delete statuses[status];
+  } else {
+    statuses[status] = amount;
+  }
+
+  return {
+    ...target,
+    statuses,
+  };
+}
+
+function uniqueRelics(relics: RelicId[]): RelicId[] {
+  return [...new Set(relics)];
 }
 
 function pullInnateCardsToOpeningHand(combat: CombatState): CombatState {

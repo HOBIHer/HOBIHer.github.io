@@ -1,4 +1,5 @@
 import type { CardDefinition } from '../../types';
+import { curseCards } from './curses';
 import { v130Cards } from './v130Batch';
 
 const baseWarriorCards: CardDefinition[] = [
@@ -506,12 +507,27 @@ const baseWarriorCards: CardDefinition[] = [
   },
 ];
 
-export const warriorCards: CardDefinition[] = [...baseWarriorCards, ...v130Cards];
+const ascensionBurdenCard: CardDefinition = {
+  id: 'v140-ascension-burden',
+  name: '沉重负誓',
+  lowProfileName: '额外负担项',
+  type: 'skill',
+  rarity: 'basic',
+  cost: 1,
+  target: 'none',
+  description: '失去 1 点生命。',
+  lowProfileDescription: '失去 1 点稳定度。',
+  effects: [{ type: 'loseHp', amount: 1, target: 'player' }],
+};
+
+export const warriorCards: CardDefinition[] = [...baseWarriorCards, ...v130Cards, ascensionBurdenCard];
+
+export const allCardDefinitions: CardDefinition[] = [...warriorCards, ...curseCards];
 
 export const warriorCardById: Record<string, CardDefinition> = Object.fromEntries(
-  warriorCards.map((card) => [card.id, card]),
+  allCardDefinitions.map((card) => [card.id, card]),
 );
 
 export const rewardWarriorCards = warriorCards.filter(
-  (card) => card.rarity !== 'starter' && card.rarity !== 'basic',
+  (card) => card.rarity !== 'starter' && card.rarity !== 'basic' && card.rarity !== 'curse',
 );

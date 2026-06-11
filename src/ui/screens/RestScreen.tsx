@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getBaseCardDefinition, getEffectiveCardDefinition } from '../../game/engine/cardUpgrades';
 import { useGameStore } from '../../game/store/useGameStore';
-import type { RunState, UserSettings } from '../../game/types';
+import type { CardCost, RestResult, RunState, UserSettings } from '../../game/types';
 import { getTerminology } from '../terminology/terminology';
 
 export function RestScreen() {
@@ -66,14 +66,9 @@ export function RestScreenView({
     settings.mode === 'stealth' ? '恢复 30% 稳定度上限' : '恢复 30% 最大生命';
   const result = run.lastRestResult;
   const hpLabel = terminology.hp;
-  const resultText =
-    result?.action === 'upgrade'
-      ? `${settings.mode === 'stealth' ? result.upgradedLowProfileName : result.upgradedCardName} 已升级`
-      : result
-        ? `${hpLabel} ${result.beforeHp} -> ${result.afterHp}，恢复 ${result.healed}`
-        : undefined;
   const hasResult = Boolean(result);
   const upgradeTitle = settings.mode === 'stealth' ? '优化操作项' : '升级卡牌';
+  const resultContent = result ? renderRestResult(result, settings.mode, hpLabel) : undefined;
 
   return (
     <main className="app-shell rest-shell">
@@ -95,9 +90,9 @@ export function RestScreenView({
           <span>{restoreText}</span>
         </div>
 
-        {resultText ? (
+        {resultContent ? (
           <div className="rest-result" role="status">
-            {resultText}
+            {resultContent}
           </div>
         ) : null}
 
@@ -159,4 +154,56 @@ export function RestScreenView({
       </section>
     </main>
   );
+}
+
+function renderRestResult(result: RestResult, mode: UserSettings['mode'], hpLabel: string) {
+  if (result.action !== 'upgrade') {
+    return `${hpLabel} ${result.beforeHp} -> ${result.afterHp}，恢复 ${result.healed}`;
+  }
+
+  const name = mode === 'stealth' ? result.upgradedLowProfileName : result.upgradedCardName;
+  const beforeDescription =
+    mode === 'stealth'
+      ? result.upgradeBeforeLowProfileDescription
+      : result.upgradeBeforeDescription;
+  const afterDescription =
+    mode === 'stealth'
+      ? result.upgradeAfterLowProfileDescription
+      : result.upgradeAfterDescription;
+  const costChanged =
+    result.upgradeBeforeCost !== undefined &&
+    result.upgradeAfterCost !== undefined &&
+    result.upgradeBeforeCost !== result.upgradeAfterCost;
+
+  return (
+    <div className="rest-result-details">
+      <strong>
+        {mode === 'stealth' ? `「${name ?? '操作项'}」已优化` : `「${name ?? '卡牌'}」已升级`}
+      </strong>
+      {beforeDescription ? (
+        <span>{mode === 'stealth' ? `优化前：${beforeDescription}` : `升级前：${beforeDescription}`}</span>
+      ) : null}
+      {afterDescription ? (
+        <span>{mode === 'stealth' ? `优化后：${afterDescription}` : `升级后：${afterDescription}`}</span>
+      ) : null}
+      {costChanged ? (
+        <span>
+          {mode === 'stealth' ? '成本' : '费用'} {formatCost(result.upgradeBeforeCost)} -&gt;{' '}
+          {formatCost(result.upgradeAfterCost)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function formatCost(cost: CardCost | undefined): string {
+  if (cost === undefined) {
+    return '?';
+  }
+
+  if (cost === 'unplayable') {
+    return '—';
+  }
+
+  return String(cost);
 }

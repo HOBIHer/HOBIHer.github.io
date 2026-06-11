@@ -14,8 +14,10 @@ import {
   completeCombatNode,
   skipCardReward,
   startNewRun,
+  restAtNode,
   upgradeCardAtNode,
 } from '../game/engine/run';
+import { leaveShopNode } from '../game/engine/shop';
 import { resolveReward } from '../game/engine/run';
 import type { CurrentRunSave, MapNodeType, RunState } from '../game/types';
 import { defaultSettings } from '../adapters/settingsAdapter';
@@ -219,9 +221,7 @@ describe('v1.2.0 tree map, upgrades, and potions', () => {
 });
 
 function advanceToRest(run: RunState): RunState {
-  let nextRun = completeEnterableCombat(run, 'combat');
-  nextRun = completeEnterableCombat(nextRun, 'combat');
-  return completeEnterableCombat(nextRun, 'elite');
+  return advanceUntilEnterable(run, 'rest');
 }
 
 function completeEnterableCombat(run: RunState, type: 'combat' | 'elite'): RunState {
@@ -238,12 +238,52 @@ function completeEnterableCombat(run: RunState, type: 'combat' | 'elite'): RunSt
 }
 
 function getEnterableNode(run: RunState, type: MapNodeType) {
-  const node = run.map.find((candidate) => candidate.type === type && canEnterNode(run.map, candidate.id));
+  const node = findEnterableNode(run, type);
   if (!node) {
     throw new Error(`No enterable ${type} node.`);
   }
 
   return node;
+}
+
+function findEnterableNode(run: RunState, type: MapNodeType) {
+  return run.map.find((candidate) => candidate.type === type && canEnterNode(run.map, candidate.id));
+}
+
+function advanceUntilEnterable(run: RunState, type: MapNodeType): RunState {
+  let nextRun = run;
+  let guard = 0;
+  while (!findEnterableNode(nextRun, type) && guard < 60) {
+    guard += 1;
+    nextRun = completeFirstEnterableNode(nextRun);
+  }
+  return nextRun;
+}
+
+function completeFirstEnterableNode(run: RunState): RunState {
+  const node = run.map.find((candidate) => candidate.type !== 'boss' && canEnterNode(run.map, candidate.id));
+  if (!node) {
+    throw new Error('No enterable non-boss node.');
+  }
+
+  if (node.type === 'rest') {
+    return restAtNode(enterMapNode(run, node.id));
+  }
+
+  if (node.type === 'shop') {
+    return leaveShopNode(enterMapNode(run, node.id));
+  }
+
+  let nextRun = enterMapNode(run, node.id);
+  nextRun = {
+    ...nextRun,
+    currentCombat: {
+      ...nextRun.currentCombat!,
+      phase: 'won',
+    },
+  };
+  nextRun = completeCombatNode(nextRun);
+  return skipCardReward(nextRun);
 }
 
 function createMemoryStorage(): StorageLike {

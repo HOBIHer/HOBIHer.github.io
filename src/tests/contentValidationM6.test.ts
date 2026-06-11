@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { warriorCards, rewardWarriorCards } from '../game/data/cards/warrior';
-import { enemyGroups } from '../game/data/enemies/groups';
+import { enemyGroups, getEnemyGroupsForNodeType } from '../game/data/enemies/groups';
 import { bossEnemies, eliteEnemies, normalTrainingEnemies, trainingEnemies } from '../game/data/enemies/training';
 import { relics } from '../game/data/relics/relics';
 import {
@@ -51,23 +51,33 @@ describe('milestone 6 content validation', () => {
     }
   });
 
-  it('has enough legal enemy groups and references existing enemies by node type', () => {
-    expect(enemyGroups.filter((group) => group.nodeType === 'combat')).toHaveLength(8);
-    expect(enemyGroups.filter((group) => group.nodeType === 'elite')).toHaveLength(4);
-    expect(enemyGroups.filter((group) => group.nodeType === 'boss')).toHaveLength(2);
+  it('has legal act-aware enemy groups and references existing enemies by node type', () => {
+    for (const act of [1, 2, 3] as const) {
+      expect(getEnemyGroupsForNodeType('combat', act).length).toBeGreaterThanOrEqual(3);
+      expect(getEnemyGroupsForNodeType('elite', act).length).toBeGreaterThanOrEqual(3);
+      expect(getEnemyGroupsForNodeType('boss', act)).toHaveLength(3);
+    }
     expect(uniqueCount(enemyGroups.map((group) => group.id))).toBe(enemyGroups.length);
 
     const normalIds = new Set(normalTrainingEnemies.map((enemy) => enemy.id));
     const eliteIds = new Set(eliteEnemies.map((enemy) => enemy.id));
     const bossIds = new Set(bossEnemies.map((enemy) => enemy.id));
+    const enemiesById = new Map(trainingEnemies.map((enemy) => [enemy.id, enemy]));
 
     for (const group of enemyGroups) {
       expect(group.lowProfileName).toBeTruthy();
+      expect([1, 2, 3]).toContain(group.act);
       expect(group.enemyIds.length).toBeGreaterThan(0);
       expect(group.weight).toBeGreaterThan(0);
       const legalIds =
         group.nodeType === 'combat' ? normalIds : group.nodeType === 'elite' ? eliteIds : bossIds;
       expect(group.enemyIds.every((enemyId) => legalIds.has(enemyId))).toBe(true);
+      expect(
+        group.enemyIds.every((enemyId) => {
+          const enemy = enemiesById.get(enemyId);
+          return !enemy?.act || enemy.act === group.act;
+        }),
+      ).toBe(true);
     }
   });
 

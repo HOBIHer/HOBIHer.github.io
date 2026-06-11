@@ -43,8 +43,8 @@ const attackingEnemy: EnemyDefinition = {
 
 describe('v1.3.0 card batch', () => {
   it('implements all local rows and records blocked rows with exact reasons', () => {
-    expect(v130Cards).toHaveLength(83);
-    expect(blockedV130Cards.map((card) => card.row).sort((a, b) => a - b)).toEqual([27, 60, 72, 75]);
+    expect(v130Cards).toHaveLength(84);
+    expect(blockedV130Cards.map((card) => card.row).sort((a, b) => a - b)).toEqual([27, 60, 75]);
   });
 
   it('has unique ids and complete base and upgrade fields', () => {

@@ -64,11 +64,28 @@ export function EnemyPanel({ enemy, mode = 'normal', selected = false, onSelect 
 
 function formatIntent(enemy: EnemyCombatantState, mode: GameMode): string {
   const terminology = getTerminology(mode);
+  const label = mode === 'stealth' ? stealthIntentLabel(enemy.intent.type) : enemy.intent.label;
   const details = [
     enemy.intent.damage ? `${enemy.intent.damage} ${terminology.damage}` : undefined,
     enemy.intent.block ? `${enemy.intent.block} ${terminology.block}` : undefined,
     enemy.intent.status ? `${enemy.intent.status.amount} ${statusLabel(enemy.intent.status.id)}` : undefined,
   ].filter(Boolean);
 
-  return details.length > 0 ? `${enemy.intent.label}: ${details.join(' / ')}` : enemy.intent.label;
+  return details.length > 0 ? `${label}: ${details.join(' / ')}` : label;
+}
+
+function stealthIntentLabel(type: EnemyCombatantState['intent']['type']): string {
+  if (type === 'attack') {
+    return 'Advance';
+  }
+  if (type === 'defend') {
+    return 'Buffer';
+  }
+  if (type === 'debuff') {
+    return 'Marker';
+  }
+  if (type === 'mixed') {
+    return 'Combined';
+  }
+  return 'Pending';
 }

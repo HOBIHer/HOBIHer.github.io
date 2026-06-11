@@ -2,7 +2,9 @@ import { rewardWarriorCards } from '../data/cards/warrior';
 import { relics } from '../data/relics/relics';
 import { normalizeSeed, randomInt } from '../rng';
 import { pickPotion } from './potions';
+import { getRewardGoldAmount, hasAscension } from './ascension';
 import type {
+  AscensionLevel,
   CardDefinition,
   MapNode,
   RelicDefinition,
@@ -41,7 +43,7 @@ export function generateCardRewards(
   run: RunState,
   count = 3,
 ): { rewards: RewardOption[]; rngSeed: number } {
-  const result = pickWeightedCards(run.rngSeed, 'combat', count);
+  const result = pickWeightedCards(run.rngSeed, 'combat', count, run.ascensionLevel);
 
   return {
     rewards: result.cards.map((card) => ({
@@ -70,7 +72,7 @@ export function generateNodeReward(run: RunState, node: MapNode): RewardBundle {
   }
 
   const source: RewardSource = node.type === 'elite' ? 'elite' : 'combat';
-  const cardResult = pickWeightedCards(rngSeed, source, 3);
+  const cardResult = pickWeightedCards(rngSeed, source, 3, run.ascensionLevel);
   rngSeed = cardResult.rngSeed;
 
   const goldRange = node.type === 'elite' ? { min: 20, max: 30 } : { min: 10, max: 15 };
@@ -92,7 +94,7 @@ export function generateNodeReward(run: RunState, node: MapNode): RewardBundle {
     id: `reward-${node.id}`,
     sourceNodeId: node.id,
     cardChoices: cardResult.cards.map((card) => card.id),
-    gold: goldRange.min + goldRandom.value,
+    gold: getRewardGoldAmount(goldRange.min + goldRandom.value, run.ascensionLevel),
     relicChoices: relicResult.relics.map((relic) => relic.id),
     potionId,
     claimed: false,
@@ -103,6 +105,7 @@ export function pickWeightedCards(
   seed: number,
   source: RewardSource,
   count: number,
+  ascensionLevel: AscensionLevel = 0,
 ): { cards: CardDefinition[]; rngSeed: number } {
   let rngSeed = seed;
   const available = [...rewardWarriorCards];
@@ -110,7 +113,7 @@ export function pickWeightedCards(
 
   while (available.length > 0 && cards.length < count) {
     const rarities = getAvailableCardRarities(available);
-    const rarityResult = pickWeightedRarity(rngSeed, CARD_REWARD_RARITY_WEIGHTS[source], rarities);
+    const rarityResult = pickWeightedRarity(rngSeed, getCardRewardWeights(source, ascensionLevel), rarities);
     rngSeed = rarityResult.rngSeed;
 
     const candidates = available.filter((card) => card.rarity === rarityResult.rarity);
@@ -135,7 +138,7 @@ export function pickWeightedRelics(
 ): { relics: RelicDefinition[]; rngSeed: number } {
   let rngSeed = seed;
   const owned = new Set(ownedRelics);
-  const available = relics.filter((relic) => !owned.has(relic.id));
+  const available = relics.filter((relic) => !owned.has(relic.id) && !relic.starter);
   const pickedRelics: RelicDefinition[] = [];
 
   while (available.length > 0 && pickedRelics.length < count) {
@@ -168,6 +171,22 @@ function getAvailableRelicRarities(availableRelics: RelicDefinition[]): RelicRar
   return ['common', 'uncommon', 'rare'].filter((rarity) =>
     availableRelics.some((relic) => relic.rarity === rarity),
   ) as RelicRarity[];
+}
+
+function getCardRewardWeights(
+  source: RewardSource,
+  ascensionLevel: AscensionLevel,
+): Record<RewardCardRarity, number> {
+  if (!hasAscension(ascensionLevel, 7)) {
+    return CARD_REWARD_RARITY_WEIGHTS[source];
+  }
+
+  const weights = CARD_REWARD_RARITY_WEIGHTS[source];
+  return {
+    ...weights,
+    rare: Math.max(1, Math.floor(weights.rare / 2)),
+    ancient: Math.max(0, Math.floor(weights.ancient / 2)),
+  };
 }
 
 function pickWeightedRarity<T extends string>(

@@ -8,20 +8,21 @@ import {
 } from '../game/engine/map';
 
 describe('branching map engine', () => {
-  it('creates a deterministic upward tree with multiple starts and one boss', () => {
+  it('creates a deterministic upward DAG with multiple starts, shops, and one boss', () => {
     const map = createBranchingMap('map-seed');
     const layers = new Set(map.map((node) => node.layer));
     const starts = map.filter((node) => node.parentNodeIds.length === 0);
     const bosses = map.filter((node) => node.type === 'boss');
 
-    expect(map).toHaveLength(12);
-    expect(layers.size).toBeGreaterThanOrEqual(5);
+    expect(map.length).toBeGreaterThanOrEqual(40);
+    expect(layers.size).toBeGreaterThanOrEqual(12);
     expect(starts).toHaveLength(3);
     expect(starts.every((node) => node.status === 'available')).toBe(true);
     expect(bosses).toHaveLength(1);
-    expect(bosses[0].label).toBe('最终 Boss');
+    expect(bosses[0].nextNodeIds).toEqual([]);
     expect(map.some((node) => node.type === 'elite')).toBe(true);
     expect(map.some((node) => node.type === 'rest')).toBe(true);
+    expect(map.some((node) => node.type === 'shop')).toBe(true);
     expect(createLinearMap('map-seed')).toEqual(map);
   });
 

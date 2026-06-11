@@ -2,13 +2,19 @@ export type CharacterId = 'iron-oath';
 
 export type CharacterClassId = CharacterId;
 
-export type CardType = 'attack' | 'skill' | 'power';
+export type AscensionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-export type CardRarity = 'starter' | 'basic' | 'common' | 'uncommon' | 'rare' | 'ancient';
+export interface AscensionProgress {
+  unlockedLevel: AscensionLevel;
+}
 
-export type RewardCardRarity = Exclude<CardRarity, 'starter' | 'basic'>;
+export type CardType = 'attack' | 'skill' | 'power' | 'curse';
 
-export type CardCost = number | 'X';
+export type CardRarity = 'starter' | 'basic' | 'common' | 'uncommon' | 'rare' | 'ancient' | 'curse';
+
+export type RewardCardRarity = Exclude<CardRarity, 'starter' | 'basic' | 'curse'>;
+
+export type CardCost = number | 'X' | 'unplayable';
 
 export type CardTarget = 'enemy' | 'allEnemies' | 'self' | 'none';
 
@@ -31,7 +37,9 @@ export interface UserSettings {
   compactMode: boolean;
 }
 
-export type MapNodeType = 'combat' | 'elite' | 'rest' | 'boss';
+export type MapNodeType = 'combat' | 'elite' | 'event' | 'rest' | 'shop' | 'boss';
+
+export type ActNumber = 1 | 2 | 3;
 
 export type MapNodeStatus = 'locked' | 'available' | 'completed' | 'current';
 
@@ -58,6 +66,8 @@ export type GameScreen =
   | 'combat'
   | 'reward'
   | 'rest'
+  | 'shop'
+  | 'event'
   | 'runHistory'
   | 'settings'
   | 'victory'
@@ -83,6 +93,7 @@ export interface RunSummary {
   id: string;
   seed: string;
   characterClassId: CharacterClassId;
+  ascensionLevel?: AscensionLevel;
   status: RunStatus;
   floorReached: number;
   finalHp: number;
@@ -105,6 +116,12 @@ export interface RestResult {
   upgradedCardDefinitionId?: string;
   upgradedCardName?: string;
   upgradedLowProfileName?: string;
+  upgradeBeforeDescription?: string;
+  upgradeAfterDescription?: string;
+  upgradeBeforeLowProfileDescription?: string;
+  upgradeAfterLowProfileDescription?: string;
+  upgradeBeforeCost?: CardCost;
+  upgradeAfterCost?: CardCost;
 }
 
 export interface CombatStartSnapshot {
@@ -116,6 +133,19 @@ export interface CombatStartSnapshot {
   map: MapNode[];
   potions: PotionInstance[];
   combat: CombatState;
+}
+
+export interface ShopStartSnapshot {
+  id: string;
+  nodeId: string;
+  shopSeed: string;
+  run: RunState;
+}
+
+export interface EventStartSnapshot {
+  id: string;
+  eventSeed: string;
+  run: RunState;
 }
 
 export interface CurrentRunSave {
@@ -168,7 +198,47 @@ export type StatusId =
   | 'hpLossStrength'
   | 'endTurnAutoPlayAttack'
   | 'firstCardBlockDouble'
-  | 'drawOnVulnerable';
+  | 'drawOnVulnerable'
+  | 'enemyAttackDown30'
+  | 'startTurnDraw'
+  | 'startTurnEnergyNextTurns'
+  | 'corrosiveLeak'
+  | 'temporaryDexterity'
+  | 'retainHand'
+  | 'nextCardExtraPlay'
+  | 'nextAttackDamageMultiplier'
+  | 'startTurnBlock'
+  | 'plating'
+  | 'buffer'
+  | 'ritual'
+  | 'slippery'
+  | 'slow'
+  | 'constrict'
+  | 'tangled'
+  | 'tender'
+  | 'slumber'
+  | 'stun'
+  | 'spawned'
+  | 'curlUp'
+  | 'reattach'
+  | 'vitalSpark'
+  | 'personalHive'
+  | 'sandpit'
+  | 'galvanic'
+  | 'stock'
+  | 'paperCuts'
+  | 'plow'
+  | 'ringing'
+  | 'chainsOfBinding'
+  | 'intangible'
+  | 'painfulStabs'
+  | 'nemesis'
+  | 'pollutionSlimed'
+  | 'pollutionDazed'
+  | 'pollutionBurn'
+  | 'pollutionWound'
+  | 'infection'
+  | 'toxic';
 
 export type StatusMap = Partial<Record<StatusId, number>>;
 
@@ -252,6 +322,7 @@ export interface RelicDefinition {
   name: string;
   lowProfileName: string;
   rarity: RelicRarity;
+  starter?: boolean;
   description: string;
   lowProfileDescription: string;
   triggers: RelicTrigger[];
@@ -469,6 +540,11 @@ export type CardEffect =
       count: number;
     }
   | {
+      type: 'setReplayForName';
+      nameIncludes: string;
+      amount: number;
+    }
+  | {
       type: 'costReducedByAttacksPlayedThisTurn';
     }
   | {
@@ -506,6 +582,10 @@ export interface CardDefinition {
   upgrade?: CardUpgrade;
   retain?: boolean;
   innate?: boolean;
+  keywords?: CardKeyword[];
+  curseTriggers?: CurseTrigger[];
+  unremovable?: boolean;
+  removeAfterCombats?: number;
 }
 
 export interface CardUpgrade {
@@ -523,11 +603,47 @@ export interface CardInstance {
   costOverride?: number;
   exhaustOnPlay?: boolean;
   damageBonus?: number;
+  replay?: number;
+  remainingCombats?: number;
+}
+
+export type CardKeyword = 'unplayable' | 'ethereal' | 'eternal' | 'retain' | 'innate' | 'exhaust';
+
+export type CurseTriggerTiming = 'turnEndInHand' | 'combatStart';
+
+export type CurseTriggerEffect =
+  | {
+      type: 'loseHp';
+      amount: number;
+    }
+  | {
+      type: 'takeDamage';
+      amount: number;
+    }
+  | {
+      type: 'loseGold';
+      amount: number;
+    }
+  | {
+      type: 'applyStatus';
+      status: StatusId;
+      amount: number;
+    }
+  | {
+      type: 'loseHpPerHandCard';
+      amountPerCard: number;
+    };
+
+export interface CurseTrigger {
+  timing: CurseTriggerTiming;
+  effects: CurseTriggerEffect[];
 }
 
 export type PotionId = string;
 
-export type PotionTarget = 'self' | 'enemy';
+export type PotionRarity = 'common' | 'uncommon' | 'rare' | 'event' | 'token';
+
+export type PotionTarget = 'self' | 'enemy' | 'allEnemies' | 'none';
 
 export type PotionEffect =
   | {
@@ -535,24 +651,102 @@ export type PotionEffect =
       amount: number;
     }
   | {
+      type: 'healPercentMaxHp';
+      percent: number;
+    }
+  | {
       type: 'block';
       amount: number;
+    }
+  | {
+      type: 'multiplyBlock';
+      multiplier: number;
     }
   | {
       type: 'draw';
       amount: number;
     }
   | {
+      type: 'gainEnergy';
+      amount: number;
+    }
+  | {
+      type: 'gainMaxHp';
+      amount: number;
+    }
+  | {
+      type: 'damage';
+      amount: number;
+      target: 'enemy' | 'allEnemies';
+    }
+  | {
       type: 'applyStatus';
       status: StatusId;
       amount: number;
       target: 'player' | 'enemy';
+    }
+  | {
+      type: 'applyStatusAll';
+      status: StatusId;
+      amount: number;
+      target: 'enemies';
+    }
+  | {
+      type: 'gainTemporaryStatus';
+      status: 'strength' | 'dexterity';
+      amount: number;
+      target: 'player' | 'enemy' | 'allEnemies';
+    }
+  | {
+      type: 'upgradeHand';
+    }
+  | {
+      type: 'shuffleAllIntoDrawAndDraw';
+      draw: number;
+    }
+  | {
+      type: 'playTopCards';
+      count: number;
+    }
+  | {
+      type: 'fillPotionSlots';
+    }
+  | {
+      type: 'deathWard';
+      healPercent: number;
+    }
+  | {
+      type: 'moveDiscardToHand';
+      amount: number;
+      costOverride?: number;
+      random?: boolean;
+    }
+  | {
+      type: 'addRandomCardsToHand';
+      cardTypes: CardType[];
+      upgraded?: boolean;
+      costOverride?: number;
+      exhaustOnPlay?: boolean;
+    }
+  | {
+      type: 'randomizeHandCostsThisTurn';
+    }
+  | {
+      type: 'retainHand';
+      turns: number;
+    }
+  | {
+      type: 'applyReplayToCardsByName';
+      nameIncludes: string;
+      amount: number;
     };
 
 export interface PotionDefinition {
   id: PotionId;
   name: string;
   lowProfileName: string;
+  rarity: PotionRarity;
+  characterClassId?: CharacterClassId;
   description: string;
   lowProfileDescription: string;
   target: PotionTarget;
@@ -584,6 +778,12 @@ export type EnemyEffect =
       target: 'player';
     }
   | {
+      type: 'damageRepeated';
+      amount: number;
+      times: number;
+      target: 'player';
+    }
+  | {
       type: 'block';
       amount: number;
       target: 'self';
@@ -598,15 +798,23 @@ export type EnemyEffect =
 export interface EnemyMove {
   id: string;
   name: string;
+  lowProfileName?: string;
   intent: EnemyIntent;
   effects: EnemyEffect[];
 }
+
+export type EnemyRole = 'normal' | 'elite' | 'boss' | 'summon' | 'part' | 'legacy';
 
 export interface EnemyDefinition {
   id: string;
   name: string;
   lowProfileName?: string;
+  description?: string;
+  lowProfileDescription?: string;
+  act?: ActNumber;
+  role?: EnemyRole;
   maxHp: number;
+  initialStatuses?: StatusMap;
   intentPattern: string[];
   moves: EnemyMove[];
 }
@@ -633,6 +841,7 @@ export type CombatPhase = 'player' | 'enemy' | 'won' | 'lost' | 'victory' | 'def
 export interface CombatState {
   id: string;
   rngSeed: number;
+  ascensionLevel: AscensionLevel;
   turn: number;
   phase: CombatPhase;
   player: CombatantState;
@@ -662,6 +871,7 @@ export interface CombatTurnStats {
 
 export interface CombatStats {
   hpLossEvents: number;
+  goldLost?: number;
 }
 
 export interface CharacterState {
@@ -670,6 +880,148 @@ export interface CharacterState {
   hp: number;
   maxHp: number;
   gold: number;
+}
+
+export type ShopItemType = 'card' | 'relic' | 'potion' | 'remove';
+
+export interface ShopItem {
+  id: string;
+  type: ShopItemType;
+  refId?: string;
+  price: number;
+  sold: boolean;
+}
+
+export interface ShopState {
+  nodeId: string;
+  items: ShopItem[];
+  removeCardPrice: number;
+}
+
+export type EventKind = 'major' | 'minor';
+
+export type EventChoiceStatus = 'available' | 'locked' | 'blocked';
+
+export type EventEffect =
+  | {
+      type: 'gainGold';
+      amount: number;
+    }
+  | {
+      type: 'loseGold';
+      amount: number | 'all';
+    }
+  | {
+      type: 'loseHp';
+      amount: number;
+    }
+  | {
+      type: 'healToAtLeastPercent';
+      percent: number;
+    }
+  | {
+      type: 'gainMaxHp';
+      amount: number;
+      healSameAmount?: boolean;
+    }
+  | {
+      type: 'gainPotionSlot';
+      amount: number;
+    }
+  | {
+      type: 'addRandomPotion';
+      amount: number;
+      rarity?: PotionRarity;
+    }
+  | {
+      type: 'loseRandomPotion';
+      amount: number;
+    }
+  | {
+      type: 'addRandomRelic';
+      amount: number;
+      rarity?: RelicRarity;
+    }
+  | {
+      type: 'removeRandomRelic';
+      amount: number;
+    }
+  | {
+      type: 'addCard';
+      cardId: string;
+      upgraded?: boolean;
+    }
+  | {
+      type: 'addRandomCard';
+      amount: number;
+      rarity?: RewardCardRarity;
+      cardType?: CardType;
+      upgraded?: boolean;
+    }
+  | {
+      type: 'addCurse';
+      cardId: string;
+    }
+  | {
+      type: 'addRandomCurse';
+      amount: number;
+    }
+  | {
+      type: 'upgradeRandomCards';
+      amount: number;
+      nameIncludes?: string;
+    }
+  | {
+      type: 'removeRandomCards';
+      amount: number;
+    }
+  | {
+      type: 'transformRandomCards';
+      amount: number;
+      nameIncludes?: string;
+    }
+  | {
+      type: 'downgradeRandomCards';
+      amount: number;
+    }
+  | {
+      type: 'blocked';
+      reason: string;
+    };
+
+export interface EventChoice {
+  id: string;
+  label: string;
+  lowProfileLabel: string;
+  description: string;
+  lowProfileDescription: string;
+  effects: EventEffect[];
+  status?: EventChoiceStatus;
+  lockedReason?: string;
+}
+
+export interface EventDefinition {
+  id: string;
+  name: string;
+  lowProfileName: string;
+  kind: EventKind;
+  description: string;
+  lowProfileDescription: string;
+  choices: EventChoice[];
+}
+
+export interface EventState {
+  id: string;
+  eventId: string;
+  kind: EventKind;
+  nodeId?: string;
+  seed: string;
+  name: string;
+  lowProfileName: string;
+  description: string;
+  lowProfileDescription: string;
+  choices: EventChoice[];
+  resultLog: string[];
 }
 
 export interface RunState {
@@ -691,6 +1043,13 @@ export interface RunState {
   act: number;
   floor: number;
   runStartedAt: string;
+  ascensionLevel: AscensionLevel;
+  shops: Record<string, ShopState>;
+  currentShop?: ShopState;
+  shopStartSnapshot?: ShopStartSnapshot;
+  currentEvent?: EventState;
+  eventStartSnapshot?: EventStartSnapshot;
+  seenEventIds: string[];
   currentCombat?: CombatState;
   combatStartSnapshot?: CombatStartSnapshot;
   lastRestResult?: RestResult;

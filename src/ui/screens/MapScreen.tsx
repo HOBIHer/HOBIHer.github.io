@@ -1,6 +1,7 @@
 import { canEnterNode } from '../../game/engine/map';
 import type { MapNodeStatus, RunState, UserSettings } from '../../game/types';
 import { useGameStore } from '../../game/store/useGameStore';
+import { RelicBar } from '../components/RelicBar';
 import { getTerminology } from '../terminology/terminology';
 
 const statusLabel: Record<MapNodeStatus, string> = {
@@ -83,6 +84,8 @@ export function MapScreenView({
           </button>
         </div>
       </header>
+
+      <RelicBar mode={settings.mode} relicIds={run.relics} />
 
       <section className="map-track map-track-branching" aria-label={terminology.map}>
         {mapFloors.map((floorNodes, floorIndex) => {
