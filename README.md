@@ -22,6 +22,7 @@
 -- supabase/migrations/002_rls.sql
 -- supabase/migrations/003_functions.sql
 -- supabase/migrations/004_seed.sql
+-- supabase/migrations/005_recovery_and_levelup.sql
 ```
 
 4. 注册一个普通用户，例如用户名 `admin`。
@@ -67,6 +68,16 @@ npm run smoke:supabase -- --register
 
 第一条只检查环境变量；第二条会创建一个随机 `codex_smoke_*` 测试账号，验证注册、登录、profile、普通攻击、108 行等级配置、`settle_self` 与 `start_activity('cultivating')`。
 如果 Supabase 返回 `email rate limit exceeded`，等待项目 Auth 限流窗口恢复后重跑第二条。
+
+## Updating An Existing Supabase Project
+
+如果项目已经部署过旧版 SQL，只需要在 Supabase SQL editor 执行最新增量文件：
+
+```sql
+-- supabase/migrations/005_recovery_and_levelup.sql
+```
+
+该迁移会增加自然恢复配置，并替换 `settle_self()`：突破升境界后自动回满 HP/Qi；非疗伤状态也会按很慢速度自然恢复 HP/Qi。
 
 ## GitHub Pages
 

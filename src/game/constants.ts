@@ -50,6 +50,8 @@ export const DEFAULT_GLOBAL_CONFIG = {
   max_offline_seconds: 86_400,
   heal_hp_pct_per_sec: 0.025,
   heal_qi_pct_per_sec: 0.04,
+  passive_hp_pct_per_sec: 0.0005,
+  passive_qi_pct_per_sec: 0.0008,
   auction_close_hour_local: 16,
   auction_bid_lock_minutes: 30,
   auction_min_increment_pct: 0.05,

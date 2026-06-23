@@ -67,6 +67,8 @@ values
   ('max_offline_seconds', to_jsonb(86400::numeric), '单次离线结算上限'),
   ('heal_hp_pct_per_sec', to_jsonb(0.025::numeric), '疗伤每秒恢复血量百分比'),
   ('heal_qi_pct_per_sec', to_jsonb(0.04::numeric), '疗伤每秒恢复斗气百分比'),
+  ('passive_hp_pct_per_sec', to_jsonb(0.0005::numeric), '非疗伤状态每秒自然恢复血量百分比'),
+  ('passive_qi_pct_per_sec', to_jsonb(0.0008::numeric), '非疗伤状态每秒自然恢复斗气百分比'),
   ('auction_close_hour_local', to_jsonb(16::numeric), 'UTC+8 拍卖结算小时'),
   ('auction_bid_lock_minutes', to_jsonb(30::numeric), '拍卖出价锁定分钟'),
   ('auction_min_increment_pct', to_jsonb(0.05::numeric), '最低加价比例'),

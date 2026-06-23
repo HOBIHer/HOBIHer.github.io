@@ -106,6 +106,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
+      const userResult = await client.auth.getUser()
+      if (userResult.error) throw userResult.error
+      const userId = userResult.data.user?.id
+      if (!userId) throw new Error('登录状态已失效')
+
       const [
         profileResult,
         levelsResult,
@@ -116,7 +121,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lotsResult,
         logsResult,
       ] = await Promise.all([
-        client.from('player_profiles').select('*').single(),
+        client.from('player_profiles').select('*').eq('id', userId).single(),
         client.from('level_configs').select('*').order('level_order'),
         client.from('global_configs').select('key,value'),
         client.from('game_items').select('*').order('created_at', { ascending: true }),

@@ -96,6 +96,8 @@ export interface GlobalConfigValues {
   max_offline_seconds: number
   heal_hp_pct_per_sec: number
   heal_qi_pct_per_sec: number
+  passive_hp_pct_per_sec: number
+  passive_qi_pct_per_sec: number
   auction_close_hour_local: number
   auction_bid_lock_minutes: number
   auction_min_increment_pct: number

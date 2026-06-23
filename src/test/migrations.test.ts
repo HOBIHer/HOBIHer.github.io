@@ -60,4 +60,13 @@ describe('supabase migrations', () => {
     expect(seed).toContain('with skill_seed')
     expect(seed).toContain('with chore_seed')
   })
+
+  it('keeps recovery and level-up migration available for deployed projects', () => {
+    const migration = readMigration('005_recovery_and_levelup.sql')
+    expect(migration).toContain('passive_hp_pct_per_sec')
+    expect(migration).toContain('passive_qi_pct_per_sec')
+    expect(migration).toContain('v_level_order > v_start_level_order')
+    expect(migration).toContain('v_hp := v_max_hp')
+    expect(migration).toContain('v_qi := v_max_qi')
+  })
 })

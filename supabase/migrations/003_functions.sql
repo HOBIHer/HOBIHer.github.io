@@ -113,6 +113,7 @@ declare
   v_gain numeric := 0;
   v_xp numeric;
   v_level_order int;
+  v_start_level_order int;
   v_threshold numeric;
   v_rate numeric;
   v_activity public.activity_type;
@@ -148,6 +149,7 @@ begin
   v_elapsed := greatest(0, least(v_elapsed, public.config_numeric('max_offline_seconds', 86400)));
   v_xp := v_profile.cultivation_xp;
   v_level_order := v_profile.level_order;
+  v_start_level_order := v_profile.level_order;
   v_activity := v_profile.activity_type;
   v_target := v_profile.activity_target_id;
   v_hp := v_profile.current_hp;
@@ -233,6 +235,20 @@ begin
   select max_hp, max_qi, attack, defense
   into v_max_hp, v_max_qi, v_attack, v_defense
   from public.compute_player_stats(v_level_order, v_profile.equipped_method_id);
+
+  if v_level_order > v_start_level_order then
+    v_hp := v_max_hp;
+    v_qi := v_max_qi;
+  elsif v_elapsed > 0 and v_profile.activity_type <> 'healing' then
+    v_hp := least(
+      v_max_hp,
+      coalesce(v_hp, v_max_hp) + v_elapsed * v_max_hp * public.config_numeric('passive_hp_pct_per_sec', 0.0005)
+    );
+    v_qi := least(
+      v_max_qi,
+      coalesce(v_qi, v_max_qi) + v_elapsed * v_max_qi * public.config_numeric('passive_qi_pct_per_sec', 0.0008)
+    );
+  end if;
 
   v_hp := least(coalesce(v_hp, v_max_hp), v_max_hp);
   v_qi := least(coalesce(v_qi, v_max_qi), v_max_qi);
