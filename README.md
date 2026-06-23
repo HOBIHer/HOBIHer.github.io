@@ -72,6 +72,8 @@ npm run smoke:supabase -- --register
 
 本项目使用 hash 路由，静态资源 `base` 为相对路径，适合部署到 `github.io`。仓库中包含 GitHub Actions workflow，会在推送到 `main` 时执行构建并发布 `dist/`。
 
+GitHub Actions 构建时会注入 Supabase publishable env。默认 workflow 已带当前 demo 项目的 public 配置；如果要切换 Supabase 项目，可在 GitHub 仓库的 Settings -> Secrets and variables -> Actions 中设置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_PUBLISHABLE_KEY`。
+
 后台入口：
 
 ```text
