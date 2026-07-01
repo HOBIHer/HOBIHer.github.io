@@ -10,4 +10,9 @@ yarn-error.log*
 pnpm-debug.log*
 dev-server*.log
 .DS_Store
-backups/
+backups/*
+!backups/backup-20260623-151737/
+!backups/backup-20260623-151737/.gitignore
+backups/backup-20260623-151737/*
+!backups/backup-20260623-151737/dist/
+!backups/backup-20260623-151737/dist/**
