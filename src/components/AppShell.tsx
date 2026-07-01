@@ -18,7 +18,7 @@ export function AppShell() {
         </div>
         <div className="topbar__actions">
           {profile?.is_admin ? (
-            <Link className="icon-button" to="/admin-stone-gate" title="后台">
+            <Link className="icon-button" to="/doupo/admin-stone-gate" title="后台">
               <Shield size={18} />
             </Link>
           ) : null}

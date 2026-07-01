@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/copy-slayfish-build.mjs",
     "preview": "vite preview",
     "smoke:supabase": "node scripts/supabase-smoke.mjs",
     "test": "vitest run"
