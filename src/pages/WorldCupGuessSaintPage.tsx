@@ -822,7 +822,7 @@ function RankRules() {
       <div className="guess-section-head">
         <div>
           <h2>段位法则</h2>
-          <p>正负两条修炼路，错得多也算一种实力。</p>
+          <p>全错也是一种全对</p>
         </div>
       </div>
       <div className="guess-rules">
@@ -838,7 +838,7 @@ function RankRules() {
           <li>每 100 分晋升一个大段，每个大段均分一到十段。</li>
           <li>全中加分，失手扣分；过关越多，奖惩越重。</li>
           <li>比分越极端、盈亏越大，段位分波动越明显。</li>
-          <li>历史记录越多，新增记录基础倍数越高，但最多只加到 1.75 倍。</li>
+          <li>历史记录越多，新增记录基础倍数越高</li>
         </ul>
       </div>
     </section>
