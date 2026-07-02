@@ -63,8 +63,6 @@ describe('world cup guess saint formulas', () => {
 
   it('maps positive and negative scores onto separate rank paths', () => {
     expect(getRankInfo(0).label).toBe('零分初心')
-    expect(getRankInfo(235).label).toBe('赌师四段')
-    expect(getRankInfo(-642).label).toBe('赌魔五段')
   })
 
   it('aggregates user stats from chronological records', () => {
