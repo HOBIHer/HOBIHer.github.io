@@ -79,4 +79,21 @@ describe('world cup guess saint formulas', () => {
     expect(stats.score).toBe(stats.computedRecords[0].scoreImpact)
     expect(stats.rank.path).toBe('positive')
   })
+
+  it('keeps batch metadata while computing by the individual stake', () => {
+    const record = computeRecord(
+      {
+        ...baseRecord,
+        stake: 25,
+        batchGroupId: 'batch-1',
+        batchParticipantCount: 3,
+      },
+      0,
+    )
+
+    expect(record.batchGroupId).toBe('batch-1')
+    expect(record.batchParticipantCount).toBe(3)
+    expect(record.income).toBe(62.5)
+    expect(record.netProfit).toBe(37.5)
+  })
 })

@@ -987,12 +987,21 @@ h3 {
   backdrop-filter: blur(14px);
 }
 
+.guess-batch-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
 .guess-section-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
   margin-bottom: 0.9rem;
+}
+
+.guess-section-head--compact {
+  margin-bottom: 0;
 }
 
 .guess-section-head h2 {
@@ -1135,6 +1144,48 @@ h3 {
 .guess-user-list {
   display: grid;
   gap: 0.7rem;
+}
+
+.guess-batch-users {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.7rem;
+}
+
+.guess-batch-user {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8.5rem;
+  align-items: end;
+  gap: 0.75rem;
+  border: 1px solid rgba(251, 237, 212, 0.12);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgba(10, 9, 10, 0.42);
+}
+
+.guess-batch-user__check {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  color: #fbedd4;
+}
+
+.guess-batch-user__check input {
+  width: auto;
+}
+
+.guess-batch-user__check strong,
+.guess-batch-user__check small {
+  display: block;
+}
+
+.guess-batch-user__check small {
+  margin-top: 0.22rem;
+  color: rgba(251, 237, 212, 0.58);
+  font-size: 0.78rem;
 }
 
 .guess-user-row {
@@ -1389,6 +1440,7 @@ h3 {
   .guess-detail-hero,
   .guess-user-form,
   .guess-user-row,
+  .guess-batch-user,
   .guess-form-grid,
   .guess-form-grid--legs,
   .guess-hero-stats,

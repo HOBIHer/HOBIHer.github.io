@@ -102,6 +102,8 @@ function sanitizeRecord(record: unknown): GuessRecord | null {
     legs: legs.map(sanitizeLeg).filter(Boolean) as GuessLeg[],
     stake: Number(source.stake || 0),
     odds: Number(source.odds || 0),
+    batchGroupId: typeof source.batchGroupId === 'string' ? source.batchGroupId : undefined,
+    batchParticipantCount: Number(source.batchParticipantCount || 0) || undefined,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : now,
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : now,
   }
@@ -165,6 +167,9 @@ export function WorldCupGuessSaintPage() {
   const [recordDraft, setRecordDraft] = useState<GuessRecord>(createRecordDraft)
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordError, setRecordError] = useState<string | null>(null)
+  const [batchDraft, setBatchDraft] = useState<GuessRecord>(createRecordDraft)
+  const [batchStakes, setBatchStakes] = useState<Record<string, string>>({})
+  const [batchError, setBatchError] = useState<string | null>(null)
   const [profileName, setProfileName] = useState('')
 
   const statsByUser = useMemo(() => new Map(users.map((user) => [user.id, computeUserStats(user)])), [users])
@@ -178,6 +183,18 @@ export function WorldCupGuessSaintPage() {
   const previewRecord = useMemo(
     () => computeRecord(recordDraft, activeUser?.records.length ?? 0),
     [activeUser?.records.length, recordDraft],
+  )
+  const batchParticipants = useMemo(
+    () =>
+      users
+        .filter((user) => batchStakes[user.id] !== undefined)
+        .map((user) => ({ user, stake: Number(batchStakes[user.id]) })),
+    [batchStakes, users],
+  )
+  const batchTotalStake = batchParticipants.reduce((sum, { stake }) => (Number.isFinite(stake) && stake > 0 ? sum + stake : sum), 0)
+  const batchPreviewRecord = useMemo(
+    () => computeRecord({ ...batchDraft, stake: batchTotalStake || batchDraft.stake }, 0),
+    [batchDraft, batchTotalStake],
   )
 
   useEffect(() => {
@@ -302,6 +319,96 @@ export function WorldCupGuessSaintPage() {
       if (current.legs.length === 1) return current
       return { ...current, legs: current.legs.filter((leg) => leg.id !== id) }
     })
+  }
+
+  function updateBatchLeg(id: string, patch: Partial<GuessLeg>) {
+    setBatchDraft((current) => ({
+      ...current,
+      legs: current.legs.map((leg) => (leg.id === id ? { ...leg, ...patch } : leg)),
+    }))
+  }
+
+  function addBatchLeg() {
+    setBatchDraft((current) => ({ ...current, legs: [...current.legs, createLeg()] }))
+  }
+
+  function removeBatchLeg(id: string) {
+    setBatchDraft((current) => {
+      if (current.legs.length === 1) return current
+      return { ...current, legs: current.legs.filter((leg) => leg.id !== id) }
+    })
+  }
+
+  function toggleBatchUser(id: string, checked: boolean) {
+    setBatchStakes((current) => {
+      if (!checked) {
+        const next = { ...current }
+        delete next[id]
+        return next
+      }
+      return { ...current, [id]: current[id] || String(batchDraft.stake || 100) }
+    })
+  }
+
+  function updateBatchStake(id: string, value: string) {
+    setBatchStakes((current) => ({ ...current, [id]: value }))
+  }
+
+  function saveBatchRecord(event: FormEvent) {
+    event.preventDefault()
+    const contentError = validateRecord({ ...batchDraft, stake: batchTotalStake || batchDraft.stake })
+    if (contentError) {
+      setBatchError(contentError)
+      return
+    }
+
+    if (!batchParticipants.length) {
+      setBatchError('至少选择一个合买用户，并填写购买金额')
+      return
+    }
+
+    const invalidParticipant = batchParticipants.find(({ stake }) => !Number.isFinite(stake) || stake <= 0)
+    if (invalidParticipant) {
+      setBatchError('每个合买用户的购买金额都必须大于 0')
+      return
+    }
+
+    setBatchError(null)
+    const now = nowIso()
+    const batchGroupId = makeId('batch')
+    const normalizedLegs = batchDraft.legs.map((leg) => ({
+      ...leg,
+      homeTeam: leg.homeTeam.trim(),
+      awayTeam: leg.awayTeam.trim(),
+    }))
+
+    setUsers((current) =>
+      current.map((user) => {
+        const participant = batchParticipants.find(({ user: participantUser }) => participantUser.id === user.id)
+        if (!participant) return user
+        return {
+          ...user,
+          records: [
+            ...user.records,
+            {
+              ...batchDraft,
+              id: makeId('record'),
+              legs: normalizedLegs.map((leg) => ({ ...leg, id: makeId('leg') })),
+              stake: participant.stake,
+              odds: Number(batchDraft.odds),
+              batchGroupId,
+              batchParticipantCount: batchParticipants.length,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          updatedAt: now,
+        }
+      }),
+    )
+
+    setBatchDraft(createRecordDraft())
+    setBatchStakes({})
   }
 
   function saveRecord(event: FormEvent) {
@@ -607,6 +714,160 @@ export function WorldCupGuessSaintPage() {
           <StatPill label="土块" value={`${users.length}`} />
           <StatPill label="竞猜记录" value={`${totalRecords}`} />
           <StatPill label="总盈亏" value={formatMoney(totalProfit)} tone={totalProfit >= 0 ? 'good' : 'bad'} />
+        </section>
+
+        <section className="guess-panel guess-batch-panel">
+          <div className="guess-section-head">
+            <div>
+              <h2>合买批量入账</h2>
+              <p>竞猜内容只填一次，选择参与用户和各自购买金额后，会批量写入每个用户的记录里。</p>
+            </div>
+          </div>
+
+          <form className="guess-record-form" onSubmit={saveBatchRecord}>
+            <div className="guess-form-grid">
+              <label>
+                日期
+                <input value={batchDraft.date} type="date" onChange={(event) => setBatchDraft({ ...batchDraft, date: event.target.value })} />
+              </label>
+              <label>
+                下注赔率
+                <input
+                  min="0"
+                  step="0.01"
+                  type="number"
+                  value={batchDraft.odds}
+                  onChange={(event) => setBatchDraft({ ...batchDraft, odds: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+
+            <div className="guess-leg-list">
+              {batchDraft.legs.map((leg, index) => (
+                <div className="guess-leg-row" key={leg.id}>
+                  <div className="guess-leg-row__title">
+                    <strong>合买关卡 {index + 1}</strong>
+                    <button className="guess-icon-button" disabled={batchDraft.legs.length === 1} onClick={() => removeBatchLeg(leg.id)} title="删除关卡" type="button">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className="guess-form-grid guess-form-grid--legs">
+                    <label>
+                      主队
+                      <input value={leg.homeTeam} onChange={(event) => updateBatchLeg(leg.id, { homeTeam: event.target.value })} />
+                    </label>
+                    <label>
+                      客队
+                      <input value={leg.awayTeam} onChange={(event) => updateBatchLeg(leg.id, { awayTeam: event.target.value })} />
+                    </label>
+                    <label>
+                      让球
+                      <select value={leg.handicap} onChange={(event) => updateBatchLeg(leg.id, { handicap: Number(event.target.value) })}>
+                        {handicapOptions.map((value) => (
+                          <option key={value} value={value}>
+                            {value > 0 ? `+${value}` : value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      猜测
+                      <select value={leg.pick} onChange={(event) => updateBatchLeg(leg.id, { pick: event.target.value as PickResult })}>
+                        {pickOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      主队比分
+                      <input
+                        min="0"
+                        step="1"
+                        type="number"
+                        value={leg.homeScore}
+                        onChange={(event) => updateBatchLeg(leg.id, { homeScore: Number(event.target.value) })}
+                      />
+                    </label>
+                    <label>
+                      客队比分
+                      <input
+                        min="0"
+                        step="1"
+                        type="number"
+                        value={leg.awayScore}
+                        onChange={(event) => updateBatchLeg(leg.id, { awayScore: Number(event.target.value) })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="guess-section-head guess-section-head--compact">
+              <div>
+                <h3>合买参与人</h3>
+                <p>勾选参与合买的用户，并填写每个人购买了多少金额。</p>
+              </div>
+            </div>
+
+            <div className="guess-batch-users">
+              {users.length ? (
+                users.map((user) => {
+                  const selected = batchStakes[user.id] !== undefined
+                  const stats = statsByUser.get(user.id) ?? computeUserStats(user)
+                  return (
+                    <div className="guess-batch-user" key={user.id}>
+                      <label className="guess-batch-user__check">
+                        <input checked={selected} type="checkbox" onChange={(event) => toggleBatchUser(user.id, event.target.checked)} />
+                        <span>
+                          <strong>{user.name}</strong>
+                          <small>{stats.rank.label} / {formatMoney(stats.totalProfit)}</small>
+                        </span>
+                      </label>
+                      <label>
+                        购买金额
+                        <input
+                          disabled={!selected}
+                          min="0"
+                          step="0.01"
+                          type="number"
+                          value={batchStakes[user.id] ?? ''}
+                          onChange={(event) => updateBatchStake(user.id, event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="guess-empty">
+                  <Trophy size={34} />
+                  <p>先新增用户，再使用合买批量入账。</p>
+                </div>
+              )}
+            </div>
+
+            <div className="guess-form-actions">
+              <button className="guess-secondary-button" onClick={addBatchLeg} type="button">
+                <Plus size={18} />
+                加一关
+              </button>
+              <button className="guess-primary-button" disabled={!users.length} type="submit">
+                <Save size={18} />
+                批量加入记录
+              </button>
+            </div>
+          </form>
+
+          {batchError ? <div className="guess-alert guess-alert--bad">{batchError}</div> : null}
+          <div className="guess-record-preview">
+            <span>合买预览</span>
+            <strong>{batchParticipants.length} 人</strong>
+            <span>总购买 {formatMoney(batchTotalStake)}</span>
+            <span>按总额预估收入 {formatMoney(batchPreviewRecord.income)}</span>
+            <span>按总额预估净盈亏 {formatMoney(batchPreviewRecord.netProfit)}</span>
+          </div>
         </section>
 
         <section className="guess-layout guess-layout--home">

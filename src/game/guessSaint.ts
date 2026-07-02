@@ -17,6 +17,8 @@ export interface GuessRecord {
   legs: GuessLeg[]
   stake: number
   odds: number
+  batchGroupId?: string
+  batchParticipantCount?: number
   createdAt: string
   updatedAt: string
 }
