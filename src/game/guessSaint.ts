@@ -69,6 +69,22 @@ export interface UserStats {
   computedRecords: ComputedRecord[]
 }
 
+export interface ScoreTimelinePoint {
+  id: string
+  date: string
+  label: string
+  score: number
+  scoreImpact: number
+}
+
+export interface CountryMoneyStat {
+  country: string
+  netProfit: number
+  profit: number
+  loss: number
+  recordCount: number
+}
+
 export const POSITIVE_RANKS = [
   '赌之气',
   '赌者',
@@ -246,6 +262,64 @@ export function computeUserStats(user: GuessUser): UserStats {
     rank: getRankInfo(score),
     computedRecords,
   }
+}
+
+export function buildScoreTimeline(records: ComputedRecord[]): ScoreTimelinePoint[] {
+  let score = 0
+  return records.map((record, index) => {
+    score += record.scoreImpact
+    return {
+      id: record.id,
+      date: record.date,
+      label: `第 ${index + 1} 注`,
+      score,
+      scoreImpact: record.scoreImpact,
+    }
+  })
+}
+
+function pickedCountries(leg: GuessLeg): string[] {
+  const homeTeam = leg.homeTeam.trim()
+  const awayTeam = leg.awayTeam.trim()
+  if (leg.pick === 'win') return homeTeam ? [homeTeam] : []
+  if (leg.pick === 'lose') return awayTeam ? [awayTeam] : []
+  return [homeTeam, awayTeam].filter(Boolean)
+}
+
+export function buildCountryMoneyStats(records: ComputedRecord[]): CountryMoneyStat[] {
+  const statsByCountry = new Map<string, Omit<CountryMoneyStat, 'recordCount'> & { recordIds: Set<string> }>()
+
+  records.forEach((record) => {
+    if (record.netProfit === 0) return
+    const decidingLegs = record.netProfit > 0 ? record.legs.filter((leg) => leg.correct) : record.legs.filter((leg) => !leg.correct)
+    const countryPicks = (decidingLegs.length ? decidingLegs : record.legs).flatMap(pickedCountries)
+    if (!countryPicks.length) return
+
+    const share = record.netProfit / countryPicks.length
+    countryPicks.forEach((country) => {
+      const stat =
+        statsByCountry.get(country) ??
+        {
+          country,
+          netProfit: 0,
+          profit: 0,
+          loss: 0,
+          recordIds: new Set<string>(),
+        }
+      stat.netProfit += share
+      if (share > 0) stat.profit += share
+      if (share < 0) stat.loss += share
+      stat.recordIds.add(record.id)
+      statsByCountry.set(country, stat)
+    })
+  })
+
+  return Array.from(statsByCountry.values())
+    .map(({ recordIds, ...stat }) => ({
+      ...stat,
+      recordCount: recordIds.size,
+    }))
+    .sort((left, right) => Math.abs(right.netProfit) - Math.abs(left.netProfit))
 }
 
 function rankFromMagnitude(score: number, names: string[], path: RankPath): RankInfo {

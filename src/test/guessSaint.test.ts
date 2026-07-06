@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GuessRecord, GuessUser, computeRecord, computeUserStats, getRankInfo } from '../game/guessSaint'
+import { GuessRecord, GuessUser, buildCountryMoneyStats, buildScoreTimeline, computeRecord, computeUserStats, getRankInfo } from '../game/guessSaint'
 
 const baseRecord: GuessRecord = {
   id: 'record-1',
@@ -104,5 +104,53 @@ describe('world cup guess saint formulas', () => {
 
     expect(ratio).toBeGreaterThan(9)
     expect(ratio).toBeLessThan(11)
+  })
+
+  it('builds a cumulative rank score timeline', () => {
+    const first = computeRecord(baseRecord, 0)
+    const second = computeRecord(
+      {
+        ...baseRecord,
+        id: 'record-2',
+        legs: [{ ...baseRecord.legs[0], id: 'leg-2', pick: 'draw' }],
+      },
+      1,
+    )
+    const timeline = buildScoreTimeline([first, second])
+
+    expect(timeline).toHaveLength(2)
+    expect(timeline[0].score).toBe(first.scoreImpact)
+    expect(timeline[1].score).toBe(first.scoreImpact + second.scoreImpact)
+    expect(timeline[1].scoreImpact).toBe(second.scoreImpact)
+  })
+
+  it('attributes country profit and loss to picked outcomes', () => {
+    const winningRecord = computeRecord(
+      {
+        ...baseRecord,
+        id: 'record-win',
+        legs: [{ ...baseRecord.legs[0], homeTeam: 'Brazil', awayTeam: 'Germany', pick: 'win' }],
+      },
+      0,
+    )
+    const losingRecord = computeRecord(
+      {
+        ...baseRecord,
+        id: 'record-loss',
+        legs: [{ ...baseRecord.legs[0], homeTeam: 'Brazil', awayTeam: 'Argentina', pick: 'draw' }],
+      },
+      1,
+    )
+
+    const stats = buildCountryMoneyStats([winningRecord, losingRecord])
+    const brazil = stats.find((stat) => stat.country === 'Brazil')
+    const argentina = stats.find((stat) => stat.country === 'Argentina')
+
+    expect(brazil?.profit).toBe(150)
+    expect(brazil?.loss).toBe(-50)
+    expect(brazil?.netProfit).toBe(100)
+    expect(brazil?.recordCount).toBe(2)
+    expect(argentina?.loss).toBe(-50)
+    expect(argentina?.netProfit).toBe(-50)
   })
 })

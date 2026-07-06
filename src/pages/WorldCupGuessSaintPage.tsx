@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Download, Eye, FileJson, Pencil, Plus, Save, Trash2, Trophy, Upload, UserRound, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  CountryMoneyStat,
   ComputedRecord,
   GuessLeg,
   GuessRecord,
@@ -10,6 +11,9 @@ import {
   PickResult,
   POSITIVE_RANKS,
   RankInfo,
+  ScoreTimelinePoint,
+  buildCountryMoneyStats,
+  buildScoreTimeline,
   computeRecord,
   computeUserStats,
   formatMoney,
@@ -175,6 +179,8 @@ export function WorldCupGuessSaintPage() {
   const statsByUser = useMemo(() => new Map(users.map((user) => [user.id, computeUserStats(user)])), [users])
   const activeUser = userId ? users.find((user) => user.id === userId) ?? null : null
   const activeStats = activeUser ? statsByUser.get(activeUser.id) ?? computeUserStats(activeUser) : null
+  const activeScoreTimeline = useMemo(() => (activeStats ? buildScoreTimeline(activeStats.computedRecords) : []), [activeStats])
+  const activeCountryStats = useMemo(() => (activeStats ? buildCountryMoneyStats(activeStats.computedRecords) : []), [activeStats])
   const filteredUsers = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     if (!keyword) return users
@@ -508,6 +514,24 @@ export function WorldCupGuessSaintPage() {
                   </div>
                 </div>
                 <RankAxis rank={activeStats.rank} />
+              </section>
+
+              <section className="guess-panel">
+                <div className="guess-section-head">
+                  <div>
+                    <h2>分数走势</h2>
+                  </div>
+                </div>
+                <ScoreTrendChart points={activeScoreTimeline} />
+              </section>
+
+              <section className="guess-panel">
+                <div className="guess-section-head">
+                  <div>
+                    <h2>国家盈亏归因</h2>
+                  </div>
+                </div>
+                <CountryMoneyChart stats={activeCountryStats} />
               </section>
 
               <section className="guess-panel">
@@ -1000,6 +1024,134 @@ function RankAxis({ rank }: { rank: RankInfo }) {
         <span>{rank.score} 分</span>
         <small>{rank.nextLabel}</small>
       </div>
+    </div>
+  )
+}
+
+function formatScore(value: number): string {
+  const rounded = Math.round(value)
+  return `${rounded > 0 ? '+' : ''}${rounded}`
+}
+
+function ScoreTrendChart({ points }: { points: ScoreTimelinePoint[] }) {
+  if (!points.length) {
+    return (
+      <div className="guess-empty">
+        <Trophy size={34} />
+        <p>还没有可绘制的分数记录。</p>
+      </div>
+    )
+  }
+
+  const width = 640
+  const height = 220
+  const padding = 28
+  const chartPoints = [{ id: 'start', date: '起点', label: '起点', score: 0, scoreImpact: 0 }, ...points]
+  const rawMin = Math.min(...chartPoints.map((point) => point.score))
+  const rawMax = Math.max(...chartPoints.map((point) => point.score))
+  const minScore = rawMin === rawMax ? rawMin - 10 : rawMin
+  const maxScore = rawMin === rawMax ? rawMax + 10 : rawMax
+  const scoreRange = maxScore - minScore || 1
+  const innerWidth = width - padding * 2
+  const innerHeight = height - padding * 2
+  const coords = chartPoints.map((point, index) => ({
+    ...point,
+    x: padding + (chartPoints.length === 1 ? 0 : (index / (chartPoints.length - 1)) * innerWidth),
+    y: padding + ((maxScore - point.score) / scoreRange) * innerHeight,
+  }))
+  const path = coords.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ')
+  const zeroY = padding + ((maxScore - 0) / scoreRange) * innerHeight
+  const latest = points[points.length - 1]
+  const peak = points.reduce((best, point) => (point.score > best.score ? point : best), points[0])
+  const valley = points.reduce((best, point) => (point.score < best.score ? point : best), points[0])
+
+  return (
+    <div className="guess-score-trend">
+      <div className="guess-chart-kpis">
+        <StatPill label="当前分" value={formatScore(latest.score)} tone={latest.score >= 0 ? 'good' : 'bad'} />
+        <StatPill label="最高点" value={formatScore(peak.score)} tone={peak.score >= 0 ? 'good' : 'bad'} />
+        <StatPill label="最低点" value={formatScore(valley.score)} tone={valley.score >= 0 ? 'good' : 'bad'} />
+      </div>
+      <div className="guess-line-chart-wrap">
+        <svg aria-label="分数走势折线图" className="guess-line-chart" role="img" viewBox={`0 0 ${width} ${height}`}>
+          <line className="guess-line-chart__axis" x1={padding} x2={width - padding} y1={zeroY} y2={zeroY} />
+          <path className="guess-line-chart__area" d={`${path} L ${width - padding} ${zeroY.toFixed(2)} L ${padding} ${zeroY.toFixed(2)} Z`} />
+          <path className="guess-line-chart__path" d={path} />
+          {coords.map((point, index) => (
+            <circle className={index === coords.length - 1 ? 'guess-line-chart__dot guess-line-chart__dot--latest' : 'guess-line-chart__dot'} cx={point.x} cy={point.y} key={point.id} r={index === 0 ? 3.5 : 4.5}>
+              <title>{`${point.label} ${point.date}：${formatScore(point.score)}（${formatScore(point.scoreImpact)}）`}</title>
+            </circle>
+          ))}
+        </svg>
+        <div className="guess-line-chart__labels">
+          <span>起点 0</span>
+          <span>{latest.date} {formatScore(latest.score)}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CountryMoneyChart({ stats }: { stats: CountryMoneyStat[] }) {
+  const profitStats = [...stats].filter((stat) => stat.profit > 0).sort((left, right) => right.profit - left.profit).slice(0, 5)
+  const lossStats = [...stats].filter((stat) => stat.loss < 0).sort((left, right) => left.loss - right.loss).slice(0, 5)
+  const maxValue = Math.max(1, ...profitStats.map((stat) => stat.profit), ...lossStats.map((stat) => Math.abs(stat.loss)))
+
+  if (!profitStats.length && !lossStats.length) {
+    return (
+      <div className="guess-empty">
+        <Trophy size={34} />
+        <p>还没有国家盈亏记录。</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="guess-country-chart">
+      <CountryMoneyList maxValue={maxValue} mode="loss" stats={lossStats} title="亏损最多" />
+      <CountryMoneyList maxValue={maxValue} mode="profit" stats={profitStats} title="盈利最多" />
+    </div>
+  )
+}
+
+function CountryMoneyList({
+  maxValue,
+  mode,
+  stats,
+  title,
+}: {
+  maxValue: number
+  mode: 'profit' | 'loss'
+  stats: CountryMoneyStat[]
+  title: string
+}) {
+  return (
+    <div className={`guess-country-list guess-country-list--${mode}`}>
+      <div className="guess-country-list__title">
+        <span>{title}</span>
+        <strong>{stats[0]?.country ?? '暂无'}</strong>
+      </div>
+      {stats.length ? (
+        <div className="guess-country-bars">
+          {stats.map((stat) => {
+            const value = mode === 'profit' ? stat.profit : stat.loss
+            const width = `${Math.max(5, (Math.abs(value) / maxValue) * 100)}%`
+            return (
+              <div className="guess-country-row" key={`${mode}-${stat.country}`}>
+                <div className="guess-country-row__meta">
+                  <strong>{stat.country}</strong>
+                  <span>{formatMoney(value)} / {stat.recordCount} 注</span>
+                </div>
+                <div className="guess-country-row__track">
+                  <span style={{ width }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="guess-country-empty">暂无</div>
+      )}
     </div>
   )
 }
