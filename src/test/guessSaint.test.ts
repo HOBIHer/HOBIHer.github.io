@@ -96,4 +96,13 @@ describe('world cup guess saint formulas', () => {
     expect(record.income).toBe(62.5)
     expect(record.netProfit).toBe(37.5)
   })
+
+  it('scales rank score closely with stake size', () => {
+    const lowStakeRecord = computeRecord({ ...baseRecord, stake: 100 }, 0)
+    const highStakeRecord = computeRecord({ ...baseRecord, stake: 1000 }, 0)
+    const ratio = highStakeRecord.scoreImpact / lowStakeRecord.scoreImpact
+
+    expect(ratio).toBeGreaterThan(9)
+    expect(ratio).toBeLessThan(11)
+  })
 })

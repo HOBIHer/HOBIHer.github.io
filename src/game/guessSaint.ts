@@ -99,6 +99,7 @@ export const NEGATIVE_RANKS = [
 
 export const RANK_BAND_SIZE = 100
 export const RANK_AXIS_LIMIT = POSITIVE_RANKS.length * RANK_BAND_SIZE
+const BASE_STAKE_FOR_SCORE = 100
 
 const LEVEL_LABELS = ['一段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段']
 
@@ -192,20 +193,20 @@ export function computeRecord(record: GuessRecord, previousRecordCount: number):
   const netProfit = income - stake
   const parlayMultiplier = Math.min(2.2, 1 + (legCount - 1) * 0.22)
   const experienceMultiplier = 1 + Math.min(0.75, Math.log10(previousRecordCount + 1) * 0.32)
-  const moneyMultiplier =
-    1 +
-    Math.min(0.65, Math.log10(Math.abs(netProfit) + 1) * 0.08 + Math.min(0.35, Math.abs(netProfit) / Math.max(stake, 1) * 0.08))
+  const stakeMultiplier = Math.max(0.1, stake / BASE_STAKE_FOR_SCORE)
+  const profitRate = Math.abs(netProfit) / Math.max(stake, 1)
+  const moneyMultiplier = 1 + Math.min(0.65, Math.log10(profitRate + 1) * 0.55)
   const strengthMultiplier = marginMultiplier(computedLegs.map((leg) => leg.adjustedDiff))
   const hitRate = correctLegs / legCount
   let scoreImpact: number
 
   if (hitAll) {
     const base = 14 + legCount * 3
-    scoreImpact = Math.round(base * parlayMultiplier * experienceMultiplier * moneyMultiplier * strengthMultiplier)
+    scoreImpact = Math.round(base * parlayMultiplier * experienceMultiplier * stakeMultiplier * moneyMultiplier * strengthMultiplier)
   } else {
     const base = 10 + legCount * 2
     const missPressure = 0.72 + (1 - hitRate) * 0.48
-    scoreImpact = -Math.round(base * parlayMultiplier * experienceMultiplier * moneyMultiplier * strengthMultiplier * missPressure)
+    scoreImpact = -Math.round(base * parlayMultiplier * experienceMultiplier * stakeMultiplier * moneyMultiplier * strengthMultiplier * missPressure)
   }
 
   if (scoreImpact === 0) scoreImpact = hitAll ? 1 : -1
@@ -220,9 +221,9 @@ export function computeRecord(record: GuessRecord, previousRecordCount: number):
     income,
     netProfit,
     scoreImpact,
-    formulaText: `关数x${parlayMultiplier.toFixed(2)} / 历练x${experienceMultiplier.toFixed(2)} / 盈亏x${moneyMultiplier.toFixed(
+    formulaText: `关数x${parlayMultiplier.toFixed(2)} / 历练x${experienceMultiplier.toFixed(2)} / 下注x${stakeMultiplier.toFixed(
       2,
-    )} / 赛果x${strengthMultiplier.toFixed(2)}`,
+    )} / 盈亏x${moneyMultiplier.toFixed(2)} / 赛果x${strengthMultiplier.toFixed(2)}`,
   }
 }
 
