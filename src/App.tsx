@@ -4,6 +4,7 @@ import { CultivationPage } from './pages/CultivationPage'
 import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
 import { WorldCupGuessSaintPage } from './pages/WorldCupGuessSaintPage'
+import { BeautyHallPage } from './pages/BeautyHallPage'
 import { MethodsSkillsPage } from './pages/MethodsSkillsPage'
 import { ChoresPage } from './pages/ChoresPage'
 import { AuctionPage } from './pages/AuctionPage'
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/guess-saint" element={<WorldCupGuessSaintPage />} />
           <Route path="/guess-saint/:userId" element={<WorldCupGuessSaintPage />} />
+          <Route path="/beauty-hall" element={<BeautyHallPage />} />
           <Route path="/doupo" element={<DoupoApp />}>
             <Route index element={<CultivationPage />} />
             <Route path="methods" element={<MethodsSkillsPage />} />

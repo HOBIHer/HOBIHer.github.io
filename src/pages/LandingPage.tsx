@@ -1,4 +1,4 @@
-import { Anchor, Flame, LockKeyhole, Sparkles, Trophy } from 'lucide-react'
+import { Anchor, Crown, Flame, LockKeyhole, Sparkles, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const placeholders = ['星海档案', '炼金工坊', '云端秘境']
@@ -41,6 +41,16 @@ export function LandingPage() {
             <span>
               <strong>世界杯土块</strong>
               <small>波董土块封神榜</small>
+            </span>
+          </Link>
+
+          <Link className="portal-card portal-card--hall" to="/beauty-hall">
+            <span className="portal-card__icon" aria-hidden="true">
+              <Crown size={24} />
+            </span>
+            <span>
+              <strong>MasterPiece</strong>
+              <small>Path behind the scenes</small>
             </span>
           </Link>
 
