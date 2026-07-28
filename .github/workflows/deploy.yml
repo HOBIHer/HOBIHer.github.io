@@ -39,6 +39,9 @@ jobs:
       - name: Install
         run: npm ci
       - name: Test
+        env:
+          VITE_WATER_USER_MOCK: "true"
+          VITE_WATER_ADMIN_MOCK: "true"
         run: npm test
       - name: Verify water pages production mode
         run: |
