@@ -252,7 +252,7 @@ export function WaterUserPage() {
             <span className="water-user-brand__mark" aria-hidden="true"><Droplets size={20} /></span>
             <span>
               <strong>喝水记录</strong>
-              <small>每日最多记录 2 瓶</small>
+              <small>我是姆巴佩，补水啦</small>
             </span>
           </Link>
           <div className={`water-user-mode water-user-mode--${mode}`}>
@@ -356,7 +356,7 @@ export function WaterUserPage() {
 
             <aside className="water-user-note">
               <Droplets size={18} />
-              <p><strong>记录规则</strong><span>每喝空一瓶结算 1 张刮刮乐，每日最多结算 2 张。</span></p>
+              <p><strong>规则</strong><span>每喝空一瓶结算 1 张刮刮乐，每日最多结算 2 张。</span></p>
             </aside>
           </section>
         ) : (
@@ -625,7 +625,7 @@ function ScratchCardModal({ coupon, onClose, onRevealed, onViewCoupons }: Scratc
         <div className="scratch-modal__handle" aria-hidden="true" />
         <p className="scratch-modal__eyebrow">BOTTLE SETTLEMENT</p>
         <h2 id="scratch-title">已喝空一瓶，结算 1 张刮刮乐</h2>
-        <p className="scratch-modal__lead">反复滑动银色涂层；刮开约 42% 后显示奖励内容。</p>
+        <p className="scratch-modal__lead">反复滑动银色涂层刮开后显示奖励内容。</p>
 
         <div className={`scratch-card ${revealed ? 'scratch-card--revealed' : ''}`}>
           <div className="scratch-card__prize">
