@@ -8,7 +8,37 @@ describe('WaterUserPage', () => {
     Object.defineProperty(window, 'localStorage', { configurable: true, value: new MemoryStorage() })
   })
 
-  beforeEach(() => window.localStorage.clear())
+  beforeEach(() => {
+    window.localStorage.clear()
+    document.title = 'HOBIHer Hub'
+    document.head.querySelectorAll('[data-test-favicon]').forEach((element) => element.remove())
+  })
+
+  it('uses the Pu water title and favicon only while this page is mounted', () => {
+    const defaultFavicon = document.createElement('link')
+    defaultFavicon.rel = 'icon'
+    defaultFavicon.href = '/default-favicon.png'
+    defaultFavicon.setAttribute('data-test-favicon', 'true')
+    document.head.appendChild(defaultFavicon)
+
+    const { unmount } = render(
+      <MemoryRouter>
+        <WaterUserPage />
+      </MemoryRouter>,
+    )
+
+    const waterFavicon = document.head.querySelector('link[data-water-favicon="true"]')
+    expect(document.title).toBe('Pu水啦')
+    expect(waterFavicon).toHaveAttribute('href', expect.stringContaining('/assets/water/pu-water-tab-icon.png'))
+    expect(defaultFavicon).toBeInTheDocument()
+
+    unmount()
+
+    expect(document.title).toBe('HOBIHer Hub')
+    expect(document.head.querySelector('link[data-water-favicon="true"]')).not.toBeInTheDocument()
+    expect(defaultFavicon).toBeInTheDocument()
+    defaultFavicon.remove()
+  })
 
   it('exposes the primary mobile actions with accessible labels', async () => {
     const { container } = render(

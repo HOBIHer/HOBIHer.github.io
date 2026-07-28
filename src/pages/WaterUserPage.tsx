@@ -109,7 +109,14 @@ export function WaterUserPage() {
   useEffect(() => {
     mounted.current = true
     const previousTitle = document.title
-    document.title = '喝水记录 · HOBIHer'
+    const waterFavicon = document.createElement('link')
+    waterFavicon.rel = 'icon'
+    waterFavicon.type = 'image/png'
+    waterFavicon.href = `${import.meta.env.BASE_URL}assets/water/pu-water-tab-icon.png`
+    waterFavicon.setAttribute('sizes', '256x256')
+    waterFavicon.setAttribute('data-water-favicon', 'true')
+    document.head.appendChild(waterFavicon)
+    document.title = 'Pu水啦'
     for (const source of [
       '/assets/water/woodstock-sip-sprite.png',
       '/assets/water/snoopy-cup-sprite.png',
@@ -128,6 +135,7 @@ export function WaterUserPage() {
       mounted.current = false
       requestSequence.current += 1
       document.title = previousTitle
+      waterFavicon.remove()
       window.removeEventListener('focus', refreshWhenVisible)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
       if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
