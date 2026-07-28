@@ -1,0 +1,7 @@
+project_id = "hobiher-water-rewards"
+
+[functions.water-rewards-api]
+verify_jwt = false
+
+[functions.water-rewards-admin]
+verify_jwt = false

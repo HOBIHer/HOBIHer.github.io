@@ -22,6 +22,12 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_VNfyswX-5YqFzyG7lMlTBQ_fF8yM4Hz' }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://gpaykyxwmouwadgmfnil.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_VNfyswX-5YqFzyG7lMlTBQ_fF8yM4Hz' }}
+      VITE_WATER_SUPABASE_URL: ${{ vars.VITE_WATER_SUPABASE_URL || 'https://ilhdespamsutecfabknr.supabase.co' }}
+      VITE_WATER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_WATER_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_WATER_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_FX9v8Blw4wpIzLYA4hbzaQ_-FAs4dUc' }}
+      VITE_WATER_USER_API_FUNCTION: ${{ vars.VITE_WATER_USER_API_FUNCTION || 'water-rewards-api' }}
+      VITE_WATER_ADMIN_FUNCTION: ${{ vars.VITE_WATER_ADMIN_FUNCTION || 'water-rewards-admin' }}
+      VITE_WATER_USER_MOCK: ${{ vars.VITE_WATER_USER_MOCK || 'false' }}
+      VITE_WATER_ADMIN_MOCK: ${{ vars.VITE_WATER_ADMIN_MOCK || 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +40,12 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
+      - name: Verify water pages production mode
+        run: |
+          if [ "$VITE_WATER_USER_MOCK" != "false" ] || [ "$VITE_WATER_ADMIN_MOCK" != "false" ]; then
+            echo "VITE_WATER_USER_MOCK and VITE_WATER_ADMIN_MOCK must both be false for GitHub Pages deployment."
+            exit 1
+          fi
       - name: Build
         run: npm run build
       - name: Upload artifact

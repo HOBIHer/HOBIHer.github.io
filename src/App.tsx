@@ -10,6 +10,8 @@ import { ChoresPage } from './pages/ChoresPage'
 import { AuctionPage } from './pages/AuctionPage'
 import { BattlePage } from './pages/BattlePage'
 import { AdminPage } from './pages/AdminPage'
+import { WaterAdminPage } from './pages/WaterAdminPage'
+import { WaterUserPage } from './pages/WaterUserPage'
 import { AuthProvider, useAuth } from './store/authStore'
 import { GameProvider } from './store/gameStore'
 
@@ -33,26 +35,34 @@ function DoupoApp() {
   )
 }
 
-export default function App() {
+function DoupoAppRoute() {
   return (
     <AuthProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/guess-saint" element={<WorldCupGuessSaintPage />} />
-          <Route path="/guess-saint/:userId" element={<WorldCupGuessSaintPage />} />
-          <Route path="/beauty-hall" element={<BeautyHallPage />} />
-          <Route path="/doupo" element={<DoupoApp />}>
-            <Route index element={<CultivationPage />} />
-            <Route path="methods" element={<MethodsSkillsPage />} />
-            <Route path="chores" element={<ChoresPage />} />
-            <Route path="auction" element={<AuctionPage />} />
-            <Route path="battle" element={<BattlePage />} />
-            <Route path="admin-stone-gate" element={<AdminPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </HashRouter>
+      <DoupoApp />
     </AuthProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/guess-saint" element={<WorldCupGuessSaintPage />} />
+        <Route path="/guess-saint/:userId" element={<WorldCupGuessSaintPage />} />
+        <Route path="/beauty-hall" element={<BeautyHallPage />} />
+        <Route path="/water" element={<WaterUserPage />} />
+        <Route path="/water-admin" element={<WaterAdminPage />} />
+        <Route path="/doupo" element={<DoupoAppRoute />}>
+          <Route index element={<CultivationPage />} />
+          <Route path="methods" element={<MethodsSkillsPage />} />
+          <Route path="chores" element={<ChoresPage />} />
+          <Route path="auction" element={<AuctionPage />} />
+          <Route path="battle" element={<BattlePage />} />
+          <Route path="admin-stone-gate" element={<AdminPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
   )
 }

@@ -69,4 +69,86 @@ describe('supabase migrations', () => {
     expect(migration).toContain('v_hp := v_max_hp')
     expect(migration).toContain('v_qi := v_max_qi')
   })
+
+  it('keeps water rewards behind the service layer with idempotent RPCs', () => {
+    const migration = readMigration('006_water_rewards.sql')
+    const tables = [
+      'water_devices',
+      'water_reward_catalog',
+      'water_coupons',
+      'water_api_requests',
+      'water_admin_audit',
+    ]
+
+    for (const table of tables) {
+      expect(migration).toContain(`create table if not exists public.${table}`)
+      expect(migration).toContain(`alter table public.${table} enable row level security`)
+      expect(migration).toContain(`revoke all on table public.${table} from public, anon, authenticated`)
+    }
+
+    for (const fn of [
+      'water_register_device',
+      'water_get_state',
+      'water_add_water',
+      'water_list_coupons',
+      'water_request_redeem',
+      'water_admin_mark_redeemed',
+    ]) {
+      expect(migration).toContain(`function public.${fn}`)
+    }
+
+    expect(migration).toContain('p_request_id uuid')
+    expect(migration).toContain('for update')
+    expect(migration).toContain('grant execute on function public.water_add_water')
+  })
+
+  it('seeds the fixed cash pool and enforces the two-bottle daily limit', () => {
+    const migration = readMigration('006_water_rewards.sql')
+    const seededRewards = [...migration.matchAll(
+      /\('((?:cash_\d+)|super_mystery)',\s*'[^']+',\s*'[^']*',\s*(\d+),\s*true,\s*\d+\)/g,
+    )].map((match) => ({ key: match[1], weight: Number(match[2]) }))
+    const weights = Object.fromEntries(seededRewards.map(({ key, weight }) => [key, weight]))
+
+    expect(seededRewards.map(({ key }) => key)).toEqual([
+      'cash_10',
+      'cash_20',
+      'cash_30',
+      'cash_50',
+      'cash_66',
+      'cash_88',
+      'cash_100',
+      'cash_200',
+      'cash_520',
+      'super_mystery',
+    ])
+    expect(weights).toEqual({
+      cash_10: 3000,
+      cash_20: 2500,
+      cash_30: 1800,
+      cash_50: 1300,
+      cash_66: 700,
+      cash_88: 400,
+      cash_100: 200,
+      cash_200: 70,
+      cash_520: 29,
+      super_mystery: 1,
+    })
+    expect(seededRewards.reduce((sum, reward) => sum + reward.weight, 0)).toBe(10_000)
+    expect(weights.cash_520).toBe(29)
+    expect(weights.super_mystery).toBe(1)
+
+    expect(migration).toContain("'dailyBottleLimit', 2")
+    expect(migration).toContain("'dailyLimitReached', p_device.daily_total_ml >= 2000")
+    expect(migration).toContain("'remainingDailyMl', greatest(0, 2000")
+    expect(migration).toContain('WATER_DAILY_BOTTLE_LIMIT_REACHED')
+    expect(migration).toContain('v_applied_amount_ml := least(')
+    expect(migration).toContain('(2000 - v_device.daily_total_ml)::integer')
+    expect(migration).toContain("'appliedAmountMl', v_applied_amount_ml")
+
+    expect(migration).toContain('function public.water_fixed_cash_amount')
+    expect(migration).toContain("when 'cash_520' then 520")
+    expect(migration).toContain("'redeemedAmount'")
+    expect(migration).toContain("and c.status = 'redeemed'")
+    expect(migration).toContain('water_coupons_device_redeemed_idx')
+  })
 })

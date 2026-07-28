@@ -1,4 +1,4 @@
-import { Anchor, Crown, Flame, LockKeyhole, Sparkles, Trophy } from 'lucide-react'
+import { Anchor, Crown, Droplets, Flame, LockKeyhole, ShieldCheck, Sparkles, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const placeholders = ['星海档案', '炼金工坊', '云端秘境']
@@ -51,6 +51,26 @@ export function LandingPage() {
             <span>
               <strong>MasterPiece</strong>
               <small>Path behind the scenes</small>
+            </span>
+          </Link>
+
+          <Link className="portal-card portal-card--water" to="/water">
+            <span className="portal-card__icon" aria-hidden="true">
+              <Droplets size={24} />
+            </span>
+            <span>
+              <strong>喝水记录</strong>
+              <small>从水瓶取水，喝空结算刮刮乐</small>
+            </span>
+          </Link>
+
+          <Link className="portal-card portal-card--water-admin" to="/water-admin">
+            <span className="portal-card__icon" aria-hidden="true">
+              <ShieldCheck size={24} />
+            </span>
+            <span>
+              <strong>喝水刮刮乐后台</strong>
+              <small>查询、核销与奖池管理</small>
             </span>
           </Link>
 

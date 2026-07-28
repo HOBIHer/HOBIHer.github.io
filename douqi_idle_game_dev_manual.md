@@ -40,7 +40,7 @@
 NEXT_PUBLIC_SUPABASE_URL=https://gpaykyxwmouwadgmfnil.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_VNfyswX-5YqFzyG7lMlTBQ_fF8yM4Hz
 
-postgresql://postgres:ljq15168442626@db.gpaykyxwmouwadgmfnil.supabase.co:5432/postgres
+postgresql://postgres:[YOUR-PASSWORD]@db.gpaykyxwmouwadgmfnil.supabase.co:5432/postgres
 ```
 
 由于 Vite 默认只暴露 `VITE_` 前缀变量，应在 `vite.config.ts` 中加入：
