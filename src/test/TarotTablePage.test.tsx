@@ -132,6 +132,7 @@ describe('TarotTablePage reveal flow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    document.title = 'HOBIHer Hub'
     sceneMock.listener = null
     sceneMock.preloadAssetUrls = []
     sceneMock.snapshot = makeSnapshot([hiddenCard])
@@ -172,6 +173,14 @@ describe('TarotTablePage reveal flow', () => {
       writable: true,
       value: vi.fn(),
     })
+  })
+
+  it('uses the divination-house browser title only while mounted', () => {
+    const { unmount } = renderPage()
+
+    expect(document.title).toBe('Snoopy占卜屋')
+    unmount()
+    expect(document.title).toBe('HOBIHer Hub')
   })
 
   it('keeps the table chrome visual-only and removes the old control sidebar', () => {

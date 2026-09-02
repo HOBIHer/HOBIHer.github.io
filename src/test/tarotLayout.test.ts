@@ -9,6 +9,7 @@ import {
   findSpreadSlotAtPoint,
   getFanPanRange,
   getSpreadSlotHits,
+  getTarotViewportComposition,
   resetFanViewport,
   transformFanX,
   type SpreadSlotGeometry,
@@ -114,7 +115,9 @@ describe('tarot fan viewport', () => {
     { x: 200, width: 72, height: 118 },
   ] as const
 
-  it('clamps spacing zoom to the supported 1x through 2.6x range', () => {
+  it('clamps spacing zoom to the expanded supported range', () => {
+    expect(FAN_SPACING_ZOOM_MAX).toBeGreaterThan(2.6)
+    expect(FAN_SPACING_ZOOM_MAX).toBeLessThanOrEqual(4)
     expect(clampFanSpacingZoom(0.2)).toBe(FAN_SPACING_ZOOM_MIN)
     expect(clampFanSpacingZoom(1)).toBe(1)
     expect(clampFanSpacingZoom(1.8)).toBe(1.8)
@@ -123,20 +126,24 @@ describe('tarot fan viewport', () => {
     expect(clampFanSpacingZoom(Number.NaN)).toBe(FAN_SPACING_ZOOM_MIN)
   })
 
-  it('expands only card spacing at 2.6x while preserving card dimensions', () => {
+  it('expands only card spacing at maximum zoom while preserving card dimensions', () => {
     const atOneX = basePoses.map((pose) => ({
       ...pose,
       x: transformFanX(pose.x, centerX, 1, 0),
     }))
     const atMaxZoom = basePoses.map((pose) => ({
       ...pose,
-      x: transformFanX(pose.x, centerX, 2.6, 0),
+      x: transformFanX(pose.x, centerX, FAN_SPACING_ZOOM_MAX, 0),
     }))
 
     expect(atOneX.map((pose) => pose.x)).toEqual([100, 150, 200])
-    expect(atMaxZoom.map((pose) => pose.x)).toEqual([20, 150, 280])
+    expect(atMaxZoom.map((pose) => pose.x)).toEqual([
+      centerX - 50 * FAN_SPACING_ZOOM_MAX,
+      centerX,
+      centerX + 50 * FAN_SPACING_ZOOM_MAX,
+    ])
     expect(atMaxZoom[1].x - atMaxZoom[0].x).toBe(
-      (atOneX[1].x - atOneX[0].x) * 2.6,
+      (atOneX[1].x - atOneX[0].x) * FAN_SPACING_ZOOM_MAX,
     )
     expect(atMaxZoom.map(({ width, height }) => ({ width, height }))).toEqual(
       atOneX.map(({ width, height }) => ({ width, height })),
@@ -147,18 +154,65 @@ describe('tarot fan viewport', () => {
     const baseXs = basePoses.map((pose) => pose.x)
 
     expect(getFanPanRange(baseXs, centerX, 1, 200)).toEqual({ min: 0, max: 0 })
+    expect(getFanPanRange(baseXs, centerX, 1, 80)).toEqual({ min: -10, max: 10 })
 
-    const range = getFanPanRange(baseXs, centerX, 2.6, 100)
-    expect(range).toEqual({ min: -80, max: 80 })
-    expect(transformFanX(baseXs[baseXs.length - 1], centerX, 2.6, range.min)).toBe(200)
-    expect(transformFanX(baseXs[0], centerX, 2.6, range.max)).toBe(100)
-    expect(getFanPanRange([], centerX, 2.6, 100)).toEqual({ min: 0, max: 0 })
+    const range = getFanPanRange(baseXs, centerX, FAN_SPACING_ZOOM_MAX, 100)
+    const expectedPan = 50 * FAN_SPACING_ZOOM_MAX - 50
+    expect(range).toEqual({ min: -expectedPan, max: expectedPan })
+    expect(
+      transformFanX(
+        baseXs[baseXs.length - 1],
+        centerX,
+        FAN_SPACING_ZOOM_MAX,
+        range.min,
+      ),
+    ).toBe(200)
+    expect(
+      transformFanX(baseXs[0], centerX, FAN_SPACING_ZOOM_MAX, range.max),
+    ).toBe(100)
+    expect(getFanPanRange([], centerX, FAN_SPACING_ZOOM_MAX, 100)).toEqual({
+      min: 0,
+      max: 0,
+    })
   })
 
   it('provides the canonical spacing and pan reset for a collapse transition', () => {
     expect(resetFanViewport()).toEqual({
       zoom: FAN_SPACING_ZOOM_MIN,
       panX: 0,
+    })
+  })
+})
+
+describe('tarot responsive viewport composition', () => {
+  it('uses a close compact composition on tall phone stages', () => {
+    const composition = getTarotViewportComposition(386, 768)
+
+    expect(composition).toEqual({
+      distanceScale: 1.85,
+      lookAtY: 1.35,
+      useCompactTableLayout: true,
+    })
+  })
+
+  it('keeps tablet and desktop framing unchanged', () => {
+    expect(getTarotViewportComposition(768, 938)).toEqual({
+      distanceScale: 1.42 / (768 / 938),
+      lookAtY: 0.55,
+      useCompactTableLayout: false,
+    })
+    expect(getTarotViewportComposition(1440, 798)).toEqual({
+      distanceScale: 1,
+      lookAtY: 0.55,
+      useCompactTableLayout: false,
+    })
+  })
+
+  it('keeps short and non-finite measurements safe', () => {
+    expect(getTarotViewportComposition(Number.NaN, 0)).toEqual({
+      distanceScale: 1.42,
+      lookAtY: 0.55,
+      useCompactTableLayout: false,
     })
   })
 })

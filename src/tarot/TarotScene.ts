@@ -19,6 +19,7 @@ import {
   findSpreadSlotAtPoint,
   getFanPanRange,
   getSpreadSlotPoses,
+  getTarotViewportComposition,
   resetFanViewport,
   transformFanX,
   type SpreadSlotPose,
@@ -28,8 +29,8 @@ import type { Point2D, TarotSpread, TarotSpreadSlot } from './types'
 
 const TABLE_WIDTH = 1600
 const TABLE_HEIGHT = 900
-const CARD_WIDTH = 96
-const CARD_HEIGHT = 168
+const CARD_WIDTH = 108
+const CARD_HEIGHT = 189
 const CARD_HULL_WIDTH = CARD_WIDTH * 0.92
 const CARD_HULL_HEIGHT = CARD_HEIGHT * 0.94
 const WORLD_SCALE = 0.01
@@ -46,12 +47,17 @@ const FAN_CENTER = { x: TABLE_WIDTH * 0.5, y: 720 }
 // Keep the deck inside the fixed camera's narrowest horizontal frustum. At the
 // old x=245 position the full card width fell outside portrait-like table stages.
 const DECK_CENTER = { x: 530, y: 650 }
+const PHONE_DECK_CENTER = { x: 580, y: 650 }
 const SPREAD_ORIGIN = { x: 260, y: 62 }
 const SPREAD_TABLE_SIZE = { width: 1140, height: 610 }
+const PHONE_SPREAD_ORIGIN = { x: 440, y: 62 }
+const PHONE_SPREAD_TABLE_SIZE = { width: 720, height: 610 }
 const FAN_VIEWPORT_CENTER_WIDTH = TABLE_WIDTH - 260 - CARD_WIDTH
+const PHONE_FAN_VIEWPORT_CENTER_WIDTH = 480
 const FAN_WHEEL_SENSITIVITY = 0.00125
 const PAW_PLACE_DURATION_MS = 450
-const CARD_HOLD_DURATION_MS = 400
+const CARD_HOLD_DURATION_MS = 550
+const CARD_HOLD_REDUCED_MOTION_DURATION_MS = 500
 const CARD_HOLD_INDICATOR_DELAY_MS = 140
 const CARD_HOLD_MOVE_THRESHOLD_PX = 11
 const STARTUP_SHARED_ASSET_COUNT = 8
@@ -283,6 +289,11 @@ interface HoldIndicatorRuntime {
   context: CanvasRenderingContext2D
 }
 
+interface HoldHighlightRuntime {
+  mesh: THREE.Mesh
+  material: THREE.MeshBasicMaterial
+}
+
 interface FanPinchRuntime {
   pointerIds: [number, number]
   initialDistance: number
@@ -442,6 +453,7 @@ export class TarotScene {
   private pawPlaceMaterial: THREE.SpriteMaterial | null = null
   private pawPlacement: PawPlacementRuntime | null = null
   private holdIndicator: HoldIndicatorRuntime | null = null
+  private holdHighlight: HoldHighlightRuntime | null = null
   private magicRing: MagicRingRuntime | null = null
   private shared: SharedVisualResources | null = null
   private resolvedSlotTexture: THREE.Texture | null = null
@@ -598,6 +610,7 @@ export class TarotScene {
     this.pawGrabMaterial?.dispose()
     this.pawPlaceMaterial?.dispose()
     this.holdIndicator?.material.dispose()
+    this.holdHighlight?.material.dispose()
     this.magicRing?.material.dispose()
     this.tableMaterial?.dispose()
     if (this.tableMesh?.geometry) this.tableMesh.geometry.dispose()
@@ -634,6 +647,7 @@ export class TarotScene {
     this.paw = null
     this.pawPlacement = null
     this.holdIndicator = null
+    this.holdHighlight = null
     this.activePointers.clear()
     this.fanPan = null
     this.fanPinch = null
@@ -832,7 +846,7 @@ export class TarotScene {
     const cards = this.cards.filter((card) => card.state !== 'slot-locked')
     const targets = new Map(cards.map((card) => [card.data.id, card.stackPose]))
     this.setMode('collapsing')
-    this.startMagic(DECK_CENTER, this.reducedMotion ? 0.2 : 1.1)
+    this.startMagic(this.getDeckCenter(), this.reducedMotion ? 0.2 : 1.1)
     return this.beginTransition('collapse', cards, targets, () => {
       for (const card of cards) this.stackCard(card)
       this.setMode('stacked')
@@ -855,7 +869,7 @@ export class TarotScene {
     // instead of snapping them to their stack poses in the same frame.
     const targets = new Map(releasedCards.map((card) => [card.data.id, card.stackPose]))
     this.setMode('collapsing')
-    this.startMagic(DECK_CENTER, this.reducedMotion ? 0.2 : 1.1)
+    this.startMagic(this.getDeckCenter(), this.reducedMotion ? 0.2 : 1.1)
     return this.beginTransition('collapse', releasedCards, targets, () => {
       for (const card of releasedCards) this.stackCard(card)
       this.setMode('stacked')
@@ -942,7 +956,7 @@ export class TarotScene {
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 40)
     camera.position.set(0, 7.5, 7.2)
-    camera.lookAt(0, 0, 0)
+    camera.lookAt(0, 0.55, 0)
     this.camera = camera
 
     scene.add(new THREE.HemisphereLight(0xfff1d0, 0x07191b, 1.7))
@@ -1059,7 +1073,7 @@ export class TarotScene {
     })
     const deck = shuffle(normalized, this.random)
     const stackLayouts = createStackLayout(deck, {
-      center: DECK_CENTER,
+      center: this.getDeckCenter(),
       offset: { x: 0.46, y: -0.34 },
       rotationStepDeg: 0.045,
       maxVisibleLayers: 18,
@@ -1218,6 +1232,31 @@ export class TarotScene {
     ringRoot.visible = false
     this.fxGroup.add(ringRoot)
     this.magicRing = { root: ringRoot, material: ringMaterial, age: 0, duration: 1 }
+
+    const holdHighlightMaterial = new THREE.MeshBasicMaterial({
+      map: this.resolvedSlotTexture ?? this.shared.fallbackSlotTexture,
+      color: 0xffd77d,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    const holdHighlightMesh = new THREE.Mesh(
+      this.shared.slotPlaneGeometry,
+      holdHighlightMaterial,
+    )
+    holdHighlightMesh.rotation.x = -Math.PI / 2
+    holdHighlightMesh.position.y = CARD_THICKNESS + 0.018
+    holdHighlightMesh.renderOrder = 920
+    holdHighlightMesh.visible = false
+    this.fxGroup.add(holdHighlightMesh)
+    this.holdHighlight = {
+      mesh: holdHighlightMesh,
+      material: holdHighlightMaterial,
+    }
 
     for (let index = 0; index < 56; index += 1) {
       const material = new THREE.SpriteMaterial({
@@ -1409,7 +1448,7 @@ export class TarotScene {
     event.preventDefault()
     const card = this.pickCard()
     if (!card) {
-      if (this.mode === 'fan' && this.fanZoom > 1.001) {
+      if (this.mode === 'fan' && this.canPanFan()) {
         this.capturePointer(event.pointerId)
         this.fanPan = {
           pointerId: event.pointerId,
@@ -1473,7 +1512,7 @@ export class TarotScene {
 
       const shouldPanFan =
         this.mode === 'fan' &&
-        this.fanZoom > 1.001 &&
+        this.canPanFan() &&
         pending.card.state === 'fan-anchored'
       const currentPhysicsX = worldToPhysics(this.pointerTableWorld).x
       this.cancelPendingCardHold()
@@ -1563,8 +1602,11 @@ export class TarotScene {
       startPhysicsX: physicsPointer.x,
       initialPanX: this.fanPanX,
       startedAt: performance.now(),
-      durationMs: this.reducedMotion ? 350 : CARD_HOLD_DURATION_MS,
+      durationMs: this.reducedMotion
+        ? CARD_HOLD_REDUCED_MOTION_DURATION_MS
+        : CARD_HOLD_DURATION_MS,
     }
+    this.prepareHoldHighlight(card)
     if (this.holdIndicator) {
       this.holdIndicator.sprite.visible = false
       this.positionHoldIndicator(card)
@@ -1627,6 +1669,54 @@ export class TarotScene {
     card.flipGroup.position.x = 0
     card.flipGroup.position.z = 0
     card.flipGroup.rotation.y = 0
+    if (this.holdHighlight?.mesh.parent === card.root) {
+      this.holdHighlight.mesh.visible = false
+      this.holdHighlight.mesh.scale.set(1, 1, 1)
+      this.holdHighlight.material.opacity = 0
+      this.fxGroup?.add(this.holdHighlight.mesh)
+    }
+  }
+
+  private prepareHoldHighlight(card: CardRuntime): void {
+    const highlight = this.holdHighlight
+    if (!highlight) return
+    card.root.add(highlight.mesh)
+    highlight.mesh.position.set(0, CARD_THICKNESS + 0.018, 0)
+    highlight.mesh.rotation.set(-Math.PI / 2, 0, 0)
+    highlight.mesh.scale.set(1, 1, 1)
+    highlight.mesh.visible = false
+    highlight.material.opacity = 0
+  }
+
+  private updateHoldHighlight(card: CardRuntime | null, elapsed: number): void {
+    const highlight = this.holdHighlight
+    if (!highlight || !card || highlight.mesh.parent !== card.root) {
+      if (highlight) {
+        highlight.mesh.visible = false
+        highlight.material.opacity = 0
+      }
+      return
+    }
+    const pending = this.pendingCardHold
+    const delayedElapsed = elapsed - CARD_HOLD_INDICATOR_DELAY_MS
+    if (!pending || delayedElapsed < 0) {
+      highlight.mesh.visible = false
+      highlight.material.opacity = 0
+      return
+    }
+    const progress = easeOutCubic(
+      clamp(
+        delayedElapsed /
+          Math.max(1, pending.durationMs - CARD_HOLD_INDICATOR_DELAY_MS),
+        0,
+        1,
+      ),
+    )
+    const pulse = this.reducedMotion ? 0 : Math.sin(elapsed * 0.021) * 0.025
+    const scale = 1 + progress * 0.075 + pulse
+    highlight.mesh.scale.set(scale, scale, 1)
+    highlight.material.opacity = progress * (0.36 + progress * 0.36)
+    highlight.mesh.visible = progress > 0.001
   }
 
   private positionHoldIndicator(card: CardRuntime): void {
@@ -1756,14 +1846,26 @@ export class TarotScene {
 
   private setFanViewport(zoom: number, panX: number, excludedCard?: CardRuntime): void {
     this.fanZoom = clampFanSpacingZoom(zoom)
-    const panRange = getFanPanRange(
+    const panRange = this.getCurrentFanPanRange()
+    this.fanPanX = clamp(panX, panRange.min, panRange.max)
+    this.applyFanViewport(excludedCard)
+  }
+
+  private getCurrentFanPanRange() {
+    const { useCompactTableLayout } = this.getViewportComposition()
+    return getFanPanRange(
       this.cards.map((card) => card.homePose.x),
       FAN_CENTER.x,
       this.fanZoom,
-      FAN_VIEWPORT_CENTER_WIDTH,
+      useCompactTableLayout
+        ? PHONE_FAN_VIEWPORT_CENTER_WIDTH
+        : FAN_VIEWPORT_CENTER_WIDTH,
     )
-    this.fanPanX = clamp(panX, panRange.min, panRange.max)
-    this.applyFanViewport(excludedCard)
+  }
+
+  private canPanFan(): boolean {
+    const panRange = this.getCurrentFanPanRange()
+    return panRange.min < -0.001 || panRange.max > 0.001
   }
 
   private applyFanViewport(excludedCard?: CardRuntime): void {
@@ -2228,11 +2330,11 @@ export class TarotScene {
         // This is a visual-only local offset. Matter coordinates and the
         // canonical root transform stay untouched, so slot targeting cannot
         // drift and every frame is derived from the same origin.
-        const strength = easeOutCubic(clamp(holdElapsed / 90, 0, 1))
-        const phase = holdElapsed * 0.049
-        card.flipGroup.position.x = Math.sin(phase) * 0.011 * strength
-        card.flipGroup.position.z = Math.sin(phase * 1.37 + 0.8) * 0.006 * strength
-        card.flipGroup.rotation.y = Math.sin(phase * 0.83 + 0.35) * 0.0045 * strength
+        const strength = easeOutCubic(clamp(holdElapsed / 115, 0, 1))
+        const phase = holdElapsed * 0.055
+        card.flipGroup.position.x = Math.sin(phase) * 0.022 * strength
+        card.flipGroup.position.z = Math.sin(phase * 1.37 + 0.8) * 0.012 * strength
+        card.flipGroup.rotation.y = Math.sin(phase * 0.83 + 0.35) * 0.009 * strength
       } else if (
         card.flipGroup.position.x !== 0 ||
         card.flipGroup.position.z !== 0 ||
@@ -2252,6 +2354,7 @@ export class TarotScene {
       }
       card.flipGroup.rotation.x = card.flipProgress * Math.PI
     }
+    this.updateHoldHighlight(heldCard, holdElapsed)
   }
 
   private visualLayer(card: CardRuntime): number {
@@ -2416,12 +2519,16 @@ export class TarotScene {
     const width = Math.max(1, this.container.clientWidth)
     const height = Math.max(1, this.container.clientHeight)
     const aspect = width / height
+    const composition = getTarotViewportComposition(width, height)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.maxPixelRatio))
     this.renderer.setSize(width, height, false)
     this.camera.aspect = aspect
-    const distanceScale = aspect < 1.42 ? 1.42 / Math.max(0.58, aspect) : 1
-    this.camera.position.set(0, 7.5 * distanceScale, 7.2 * distanceScale)
-    this.camera.lookAt(0, 0, 0)
+    this.camera.position.set(
+      0,
+      7.5 * composition.distanceScale,
+      7.2 * composition.distanceScale,
+    )
+    this.camera.lookAt(0, composition.lookAtY, 0)
     this.camera.updateProjectionMatrix()
     this.camera.updateMatrixWorld(true)
 
@@ -2556,11 +2663,27 @@ export class TarotScene {
   }
 
   private getSpreadGeometry() {
+    const { useCompactTableLayout } = this.getViewportComposition()
     return {
-      origin: SPREAD_ORIGIN,
-      tableSize: SPREAD_TABLE_SIZE,
+      origin: useCompactTableLayout ? PHONE_SPREAD_ORIGIN : SPREAD_ORIGIN,
+      tableSize: useCompactTableLayout
+        ? PHONE_SPREAD_TABLE_SIZE
+        : SPREAD_TABLE_SIZE,
       cardSize: { width: CARD_WIDTH, height: CARD_HEIGHT },
     }
+  }
+
+  private getDeckCenter(): Point2D {
+    return this.getViewportComposition().useCompactTableLayout
+      ? PHONE_DECK_CENTER
+      : DECK_CENTER
+  }
+
+  private getViewportComposition() {
+    return getTarotViewportComposition(
+      this.container.clientWidth,
+      this.container.clientHeight,
+    )
   }
 
   private getCurrentSlotPoses(): SpreadSlotPose[] {
@@ -2637,6 +2760,10 @@ export class TarotScene {
       for (const { material } of this.slotVisuals.values()) {
         material.map = slot
         material.needsUpdate = true
+      }
+      if (this.holdHighlight) {
+        this.holdHighlight.material.map = slot
+        this.holdHighlight.material.needsUpdate = true
       }
     }
     if (particle) {

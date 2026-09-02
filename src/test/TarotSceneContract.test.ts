@@ -61,16 +61,22 @@ describe('TarotScene interaction policy source contract', () => {
     expect(snapshotMethod).toContain('totalAssets: this.totalAssets')
   })
 
-  it('uses a short long-press threshold of about 400ms before starting a drag', () => {
+  it('uses a deliberate but still short hold threshold before starting a drag', () => {
     const duration = Number(
       sceneSource.match(/const CARD_HOLD_DURATION_MS = (\d+)/)?.[1],
+    )
+    const reducedDuration = Number(
+      sceneSource.match(/const CARD_HOLD_REDUCED_MOTION_DURATION_MS = (\d+)/)?.[1],
     )
     const holdMethod = privateMethodSource('startCardHold')
     const completionMethod = privateMethodSource('completePendingCardHold')
 
-    expect(duration).toBeGreaterThanOrEqual(350)
-    expect(duration).toBeLessThanOrEqual(450)
+    expect(duration).toBeGreaterThanOrEqual(500)
+    expect(duration).toBeLessThanOrEqual(600)
+    expect(reducedDuration).toBeGreaterThanOrEqual(450)
+    expect(reducedDuration).toBeLessThanOrEqual(duration)
     expect(holdMethod).toContain('CARD_HOLD_DURATION_MS')
+    expect(holdMethod).toContain('CARD_HOLD_REDUCED_MOTION_DURATION_MS')
     expect(completionMethod).toContain('this.startDrag(pending.card, pending.pointerId)')
   })
 
@@ -88,7 +94,7 @@ describe('TarotScene interaction policy source contract', () => {
     expect(updateMethod).toContain('elapsed - CARD_HOLD_INDICATOR_DELAY_MS')
   })
 
-  it('adds only a subtle held-card tremble and restores it on cancel or completion', () => {
+  it('uses a stronger bounded held-card tremble and restores it on cancel or completion', () => {
     const visualMethod = privateMethodSource('updateCardVisuals')
     const cancelMethod = privateMethodSource('cancelPendingCardHold')
     const completionMethod = privateMethodSource('completePendingCardHold')
@@ -98,18 +104,61 @@ describe('TarotScene interaction policy source contract', () => {
       visualMethod.match(/flipGroup\.position\.z\s*=.*?\*\s*(0\.\d+)\s*\*\s*strength/)?.[1],
       visualMethod.match(/flipGroup\.rotation\.y\s*=.*?\*\s*(0\.\d+)\s*\*\s*strength/)?.[1],
     ].map(Number)
+    const [xAmplitude, zAmplitude, rotationAmplitude] = amplitudes
 
     expect(visualMethod).toContain('const heldCard = this.pendingCardHold?.card ?? null')
-    for (const amplitude of amplitudes) {
-      expect(amplitude).toBeGreaterThan(0)
-      expect(amplitude).toBeLessThanOrEqual(0.02)
-    }
+    expect(xAmplitude).toBeGreaterThan(0.011)
+    expect(xAmplitude).toBeLessThanOrEqual(0.03)
+    expect(zAmplitude).toBeGreaterThan(0.006)
+    expect(zAmplitude).toBeLessThanOrEqual(0.02)
+    expect(rotationAmplitude).toBeGreaterThan(0.0045)
+    expect(rotationAmplitude).toBeLessThanOrEqual(0.015)
     expect(visualMethod).toContain('this.restoreHeldCardVisual(card)')
     expect(cancelMethod).toContain('this.restoreHeldCardVisual(heldCard)')
     expect(completionMethod).toContain('this.restoreHeldCardVisual(pending.card)')
     expect(restoreMethod).toContain('card.flipGroup.position.x = 0')
     expect(restoreMethod).toContain('card.flipGroup.position.z = 0')
     expect(restoreMethod).toContain('card.flipGroup.rotation.y = 0')
+  })
+
+  it('adds a generated-frame highlight only to the card currently charging', () => {
+    const initializeMethod = privateMethodSource('initializeEffects')
+    const holdMethod = privateMethodSource('startCardHold')
+    const prepareMethod = privateMethodSource('prepareHoldHighlight')
+    const updateMethod = privateMethodSource('updateHoldHighlight')
+    const restoreMethod = privateMethodSource('restoreHeldCardVisual')
+    const destroyMethod = publicMethodSource('destroy')
+    const loadMethod = markedMethodSource(
+      'private async loadGeneratedTextures(',
+      'loadGeneratedTextures',
+    )
+
+    expect(initializeMethod).toContain('this.shared.fallbackSlotTexture')
+    expect(initializeMethod).toContain('blending: THREE.AdditiveBlending')
+    expect(holdMethod).toContain('this.prepareHoldHighlight(card)')
+    expect(prepareMethod).toContain('card.root.add(highlight.mesh)')
+    expect(updateMethod).toContain('CARD_HOLD_INDICATOR_DELAY_MS')
+    expect(updateMethod).toContain('highlight.mesh.visible = progress > 0.001')
+    expect(updateMethod).toContain('this.reducedMotion ? 0')
+    expect(restoreMethod).toContain('this.holdHighlight.mesh.visible = false')
+    expect(restoreMethod).toContain('this.holdHighlight.material.opacity = 0')
+    expect(destroyMethod).toContain('this.holdHighlight?.material.dispose()')
+    expect(loadMethod).toContain('this.holdHighlight.material.map = slot')
+    expect(updateMethod).not.toContain('this.shared.backMaterial')
+  })
+
+  it('scales card visuals and hit bodies together while preserving their aspect ratio', () => {
+    const width = Number(sceneSource.match(/const CARD_WIDTH = (\d+)/)?.[1])
+    const height = Number(sceneSource.match(/const CARD_HEIGHT = (\d+)/)?.[1])
+    const initializeMethod = privateMethodSource('initializeThree')
+    const cardsMethod = privateMethodSource('initializeCards')
+
+    expect(width).toBeGreaterThan(96)
+    expect(height).toBeGreaterThan(168)
+    expect(height / width).toBeCloseTo(7 / 4, 5)
+    expect(initializeMethod).toContain('CARD_WORLD_WIDTH, CARD_WORLD_HEIGHT')
+    expect(cardsMethod).toContain('CARD_HULL_WIDTH')
+    expect(cardsMethod).toContain('CARD_HULL_HEIGHT')
   })
 
   it('keeps the paw horizontally aligned with pointer, drag, and placement targets', () => {
@@ -194,6 +243,23 @@ describe('TarotScene interaction policy source contract', () => {
     expect(startDragMethod).not.toMatch(/fanPanX\s*=/)
   })
 
+  it('allows a cropped fan to pan at base zoom without stealing a stationary hold', () => {
+    const pointerDownMethod = privateMethodSource('handlePointerDown')
+    const pointerMoveMethod = privateMethodSource('handlePointerMove')
+    const canPanMethod = privateMethodSource('canPanFan')
+    const panRangeMethod = privateMethodSource('getCurrentFanPanRange')
+
+    expect(pointerDownMethod).toContain("this.mode === 'fan' && this.canPanFan()")
+    expect(pointerMoveMethod).toContain('this.canPanFan()')
+    expect(pointerMoveMethod).toContain('distance <= CARD_HOLD_MOVE_THRESHOLD_PX')
+    expect(pointerMoveMethod).toContain("pending.card.state === 'fan-anchored'")
+    expect(pointerDownMethod).not.toContain('this.fanZoom > 1.001')
+    expect(pointerMoveMethod).not.toContain('this.fanZoom > 1.001')
+    expect(canPanMethod).toContain('panRange.min < -0.001')
+    expect(canPanMethod).toContain('panRange.max > 0.001')
+    expect(panRangeMethod).toContain('PHONE_FAN_VIEWPORT_CENTER_WIDTH')
+  })
+
   it('resets the fan viewport only when cards truly collapse', () => {
     const collapseMethod = privateMethodSource('collapseUnlockedCards')
     const resetCalls = sceneSource.match(/this\.resetFanState\(\)/g) ?? []
@@ -236,7 +302,7 @@ describe('TarotScene interaction policy source contract', () => {
       'new Map(releasedCards.map((card) => [card.data.id, card.stackPose]))',
     )
     expect(resetMethod).toContain("this.setMode('collapsing')")
-    expect(resetMethod).toContain('this.startMagic(DECK_CENTER')
+    expect(resetMethod).toContain('this.startMagic(this.getDeckCenter()')
     expect(resetMethod).toMatch(
       /return this\.beginTransition\('collapse', releasedCards, targets, \(\) => \{\s*for \(const card of releasedCards\) this\.stackCard\(card\)\s*this\.setMode\('stacked'\)\s*\}\)/,
     )
@@ -260,5 +326,22 @@ describe('TarotScene interaction policy source contract', () => {
     expect(resizeMethod).toContain("'--tarot-table-side-inset'")
     expect(destroyMethod).toContain("style.removeProperty('--tarot-table-top')")
     expect(destroyMethod).toContain("style.removeProperty('--tarot-table-side-inset')")
+  })
+
+  it('uses the compact phone composition for the camera, deck, spread, and fan viewport', () => {
+    const resizeMethod = privateMethodSource('resize')
+    const stackMethod = privateMethodSource('initializeCards')
+    const fanPanRangeMethod = privateMethodSource('getCurrentFanPanRange')
+    const spreadGeometryMethod = privateMethodSource('getSpreadGeometry')
+    const deckCenterMethod = privateMethodSource('getDeckCenter')
+
+    expect(resizeMethod).toContain('getTarotViewportComposition(width, height)')
+    expect(resizeMethod).toContain('composition.distanceScale')
+    expect(resizeMethod).toContain('composition.lookAtY')
+    expect(stackMethod).toContain('center: this.getDeckCenter()')
+    expect(fanPanRangeMethod).toContain('PHONE_FAN_VIEWPORT_CENTER_WIDTH')
+    expect(spreadGeometryMethod).toContain('PHONE_SPREAD_ORIGIN')
+    expect(spreadGeometryMethod).toContain('PHONE_SPREAD_TABLE_SIZE')
+    expect(deckCenterMethod).toContain('PHONE_DECK_CENTER')
   })
 })

@@ -12,6 +12,7 @@ import {
 import '../styles/tarot-table.css'
 
 const DEFAULT_SPREAD_ID: TarotSpreadId = 'single'
+const TAROT_PAGE_TITLE = 'Snoopy占卜屋'
 
 function tarotAssetUrl(filename: string) {
   return `${import.meta.env.BASE_URL}assets/tarot/${filename}`
@@ -62,6 +63,14 @@ export function TarotTablePage() {
   const [sceneError, setSceneError] = useState<string | null>(null)
   const [revealedCards, setRevealedCards] = useState<readonly TarotPlacedCard[]>([])
   const [revealOpen, setRevealOpen] = useState(false)
+
+  useEffect(() => {
+    const previousTitle = document.title
+    document.title = TAROT_PAGE_TITLE
+    return () => {
+      document.title = previousTitle
+    }
+  }, [])
 
   const closeRevealModal = useCallback(() => {
     if (revealOpenTimerRef.current !== null) {

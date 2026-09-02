@@ -50,7 +50,8 @@ describe('Tarot table DOM control projection CSS contract', () => {
     expect(canvas).toContain('touch-action: none')
   })
 
-  it('anchors the desktop actions to projected tabletop bounds instead of stage corners', () => {
+  it('places all three controls above the projected table in a centered triangle', () => {
+    const tools = cssRuleAfter('.tarot-table-tools', '.tarot-scene-host canvas')
     const surfaceActions = cssRule('.tarot-table-surface-actions')
     const action = cssRule('.tarot-table-action')
     const collapse = cssRule('.tarot-table-action--collapse')
@@ -58,14 +59,20 @@ describe('Tarot table DOM control projection CSS contract', () => {
 
     expect(surfaceActions).toContain('position: absolute')
     expect(surfaceActions).toContain('var(--tarot-table-top')
-    expect(surfaceActions).toContain('var(--tarot-table-side-inset')
-    expect(surfaceActions).toContain('transform: translateY(-0.5rem)')
+    expect(tools).toContain('--tarot-action-width:')
+    expect(tools).toContain('--tarot-action-height:')
+    expect(tools).toContain('--tarot-reveal-height:')
+    expect(surfaceActions).toContain('- var(--tarot-action-height)')
+    expect(surfaceActions).toMatch(/(?:^|\n)\s*left:\s*50%\s*;/)
+    expect(surfaceActions).toMatch(/(?:^|\n)\s*right:\s*auto\s*;/)
+    expect(surfaceActions).toContain('transform: translateX(-50%)')
     expect(surfaceActions).toContain('pointer-events: none')
     expect(surfaceActions).not.toMatch(/(?:^|\n)\s*inset:\s*0\b/)
-    expect(surfaceActions).not.toMatch(/(?:^|\n)\s*(?:left|right):\s*0\b/)
 
     expect(action).toContain('position: absolute')
     expect(action).toMatch(/(?:^|\n)\s*top:\s*0\s*;/)
+    expect(action).toContain('width: var(--tarot-action-width)')
+    expect(action).toContain('height: var(--tarot-action-height)')
     expect(action).toContain('pointer-events: auto')
     expect(collapse).toMatch(/(?:^|\n)\s*left:\s*0\s*;/)
     expect(returnAll).toMatch(/(?:^|\n)\s*right:\s*0\s*;/)
@@ -78,14 +85,27 @@ describe('Tarot table DOM control projection CSS contract', () => {
     )
 
     expect(reveal).toContain('var(--tarot-table-top')
+    expect(reveal).toContain('- var(--tarot-action-height)')
+    expect(reveal).toContain('var(--tarot-command-overlap)')
     expect(reveal).toMatch(/(?:^|\n)\s*left:\s*50%\s*;/)
     expect(reveal).toMatch(/(?:^|\n)\s*right:\s*auto\s*;/)
     expect(reveal).toContain('transform: translateX(-50%)')
     expect(reveal).toContain('width: min(var(--tarot-reveal-width), calc(100% - 1rem))')
-    expect(reveal).toContain('--tarot-reveal-width: clamp(16rem, 23vw, 20rem)')
     expect(reveal).not.toMatch(/(?:^|\n)\s*top:\s*0(?:\.|\s|;)/)
     expect(dockWhileRevealIsAvailable).toContain('visibility: hidden')
     expect(dockWhileRevealIsAvailable).toContain('pointer-events: none')
+  })
+
+  it('widens the table stage and keeps responsive action sizing outside the cloth', () => {
+    const workspace = cssRule('.tarot-workspace')
+    const mobileMarker = '@media (max-width: 720px)'
+    const mobileTools = cssRuleAfter('.tarot-table-tools', mobileMarker)
+    const portraitOverride = tableCss.indexOf('@media (max-aspect-ratio: 5 / 4)')
+
+    expect(workspace).toContain('width: min(100% - 1rem, 1800px)')
+    expect(mobileTools).toContain('--tarot-action-width: min(')
+    expect(mobileTools).toContain('--tarot-action-row-width: min(')
+    expect(portraitOverride).toBe(-1)
   })
 
   it('uses an opaque full-stage loading curtain while the WebGL table stays measurable', () => {

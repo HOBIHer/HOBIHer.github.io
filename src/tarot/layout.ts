@@ -36,8 +36,22 @@ export interface FanPanRange {
   max: number
 }
 
+export interface TarotViewportComposition {
+  distanceScale: number
+  lookAtY: number
+  useCompactTableLayout: boolean
+}
+
 export const FAN_SPACING_ZOOM_MIN = 1
-export const FAN_SPACING_ZOOM_MAX = 2.6
+export const FAN_SPACING_ZOOM_MAX = 3.6
+
+const TABLE_FIT_ASPECT = 1.42
+const TABLE_FIT_MIN_ASPECT = 0.58
+const PHONE_LAYOUT_MAX_WIDTH = 720
+const PHONE_LAYOUT_MAX_ASPECT = 0.72
+const PHONE_CAMERA_DISTANCE_SCALE = 1.85
+const DEFAULT_CAMERA_LOOK_AT_Y = 0.55
+const PHONE_CAMERA_LOOK_AT_Y = 1.35
 
 export interface SpreadSlotGeometry {
   tableSize: Size2D
@@ -79,6 +93,36 @@ function rotatePoint(point: Point2D, rotationDeg: number): Point2D {
   return {
     x: point.x * cos - point.y * sin,
     y: point.x * sin + point.y * cos,
+  }
+}
+
+/**
+ * Frame the fixed 16:9 tabletop for the current stage. Tall phone screens use
+ * a closer, slightly lower composition; their table contents are compacted by
+ * the scene so the larger cards still keep every spread position reachable.
+ */
+export function getTarotViewportComposition(
+  width: number,
+  height: number,
+): TarotViewportComposition {
+  const safeWidth = Math.max(1, finiteNumber(width, 1))
+  const safeHeight = Math.max(1, finiteNumber(height, 1))
+  const aspect = safeWidth / safeHeight
+  const fittedDistanceScale =
+    aspect < TABLE_FIT_ASPECT
+      ? TABLE_FIT_ASPECT / Math.max(TABLE_FIT_MIN_ASPECT, aspect)
+      : 1
+  const useCompactTableLayout =
+    safeWidth <= PHONE_LAYOUT_MAX_WIDTH && aspect < PHONE_LAYOUT_MAX_ASPECT
+
+  return {
+    distanceScale: useCompactTableLayout
+      ? Math.min(fittedDistanceScale, PHONE_CAMERA_DISTANCE_SCALE)
+      : fittedDistanceScale,
+    lookAtY: useCompactTableLayout
+      ? PHONE_CAMERA_LOOK_AT_Y
+      : DEFAULT_CAMERA_LOOK_AT_Y,
+    useCompactTableLayout,
   }
 }
 
