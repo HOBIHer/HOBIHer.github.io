@@ -9,6 +9,7 @@ import {
   Copy,
   Database,
   Droplets,
+  Eye,
   Gift,
   KeyRound,
   LogIn,
@@ -25,12 +26,14 @@ import {
 import { Link } from 'react-router-dom'
 import {
   clearWaterAdminSession,
+  getWaterSettings,
   getWaterApiMode,
   listWaterCoupons,
   listWaterRewards,
   loginWaterAdmin,
   markWaterCouponRedeemed,
   readWaterAdminSession,
+  updateWaterSettings,
   upsertWaterReward,
   WaterApiError,
   type WaterAdminSession,
@@ -39,10 +42,11 @@ import {
   type WaterCouponStats,
   type WaterReward,
   type WaterRewardInput,
+  type WaterSettings,
 } from '../lib/waterApi'
 import '../styles/water-admin.css'
 
-type AdminView = 'coupons' | 'rewards'
+type AdminView = 'coupons' | 'rewards' | 'settings'
 type Feedback = { kind: 'success' | 'error'; text: string } | null
 
 const PAGE_SIZE = 24
@@ -67,15 +71,20 @@ export function WaterAdminPage() {
   const [couponTotal, setCouponTotal] = useState(0)
   const [stats, setStats] = useState<WaterCouponStats>(EMPTY_STATS)
   const [rewards, setRewards] = useState<WaterReward[]>([])
+  const [settings, setSettings] = useState<WaterSettings | null>(null)
+  const [tarotPromoDraft, setTarotPromoDraft] = useState(true)
   const [loadingCoupons, setLoadingCoupons] = useState(false)
   const [loadingRewards, setLoadingRewards] = useState(false)
+  const [loadingSettings, setLoadingSettings] = useState(false)
   const [processingCoupon, setProcessingCoupon] = useState<string | null>(null)
   const [savingReward, setSavingReward] = useState<string | null>(null)
+  const [savingSettings, setSavingSettings] = useState(false)
   const [showNewReward, setShowNewReward] = useState(false)
   const [feedback, setFeedback] = useState<Feedback>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
   const couponRequestSeq = useRef(0)
   const rewardRequestSeq = useRef(0)
+  const settingsRequestSeq = useRef(0)
 
   const expireSessionIfNeeded = useCallback((error: unknown) => {
     if (error instanceof WaterApiError && (error.status === 401 || error.status === 403)) {
@@ -134,6 +143,26 @@ export function WaterAdminPage() {
     }
   }, [expireSessionIfNeeded, session])
 
+  const loadSettings = useCallback(async (preserveFeedback = false) => {
+    if (!session) return
+    const requestSeq = ++settingsRequestSeq.current
+    setLoadingSettings(true)
+    if (!preserveFeedback) setFeedback(null)
+    try {
+      const nextSettings = await getWaterSettings(session)
+      if (requestSeq !== settingsRequestSeq.current) return
+      setSettings(nextSettings)
+      setTarotPromoDraft(nextSettings.tarotPromoEnabled)
+      setLastUpdatedAt(new Date().toISOString())
+    } catch (error) {
+      if (requestSeq !== settingsRequestSeq.current) return
+      expireSessionIfNeeded(error)
+      setFeedback({ kind: 'error', text: errorMessage(error, '前台展示设置加载失败') })
+    } finally {
+      if (requestSeq === settingsRequestSeq.current) setLoadingSettings(false)
+    }
+  }, [expireSessionIfNeeded, session])
+
   useEffect(() => {
     if (session && view === 'coupons') void loadCoupons()
   }, [loadCoupons, session, view])
@@ -141,6 +170,10 @@ export function WaterAdminPage() {
   useEffect(() => {
     if (session && view === 'rewards') void loadRewards()
   }, [loadRewards, session, view])
+
+  useEffect(() => {
+    if (session && view === 'settings') void loadSettings()
+  }, [loadSettings, session, view])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -164,10 +197,12 @@ export function WaterAdminPage() {
   function handleLogout() {
     couponRequestSeq.current += 1
     rewardRequestSeq.current += 1
+    settingsRequestSeq.current += 1
     clearWaterAdminSession()
     setSession(null)
     setCoupons([])
     setRewards([])
+    setSettings(null)
     setFeedback(null)
   }
 
@@ -221,6 +256,27 @@ export function WaterAdminPage() {
     }
   }
 
+  async function saveSettings() {
+    if (!session || savingSettings) return
+    setSavingSettings(true)
+    setFeedback(null)
+    try {
+      const saved = await updateWaterSettings(session, { tarotPromoEnabled: tarotPromoDraft })
+      setSettings(saved)
+      setTarotPromoDraft(saved.tarotPromoEnabled)
+      setLastUpdatedAt(new Date().toISOString())
+      setFeedback({
+        kind: 'success',
+        text: saved.tarotPromoEnabled ? '占卜宣传画已上线' : '占卜宣传画已下线',
+      })
+    } catch (error) {
+      expireSessionIfNeeded(error)
+      setFeedback({ kind: 'error', text: errorMessage(error, '前台展示设置保存失败') })
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   if (!session) {
     return <WaterAdminLogin mode={mode} feedback={feedback} onSubmit={handleLogin} />
   }
@@ -252,12 +308,17 @@ export function WaterAdminPage() {
             <button
               className="water-admin-icon-button"
               type="button"
-              onClick={() => void (view === 'coupons' ? loadCoupons() : loadRewards())}
-              disabled={loadingCoupons || loadingRewards}
+              onClick={() => void (
+                view === 'coupons' ? loadCoupons() : view === 'rewards' ? loadRewards() : loadSettings()
+              )}
+              disabled={loadingCoupons || loadingRewards || loadingSettings}
               aria-label="刷新当前数据"
               title="刷新"
             >
-              <RefreshCw className={loadingCoupons || loadingRewards ? 'is-spinning' : ''} size={18} />
+              <RefreshCw
+                className={loadingCoupons || loadingRewards || loadingSettings ? 'is-spinning' : ''}
+                size={18}
+              />
             </button>
             <button className="water-admin-quiet-button" type="button" onClick={handleLogout}>
               <LogOut size={16} aria-hidden="true" />
@@ -315,6 +376,15 @@ export function WaterAdminPage() {
             <Gift size={17} aria-hidden="true" />
             奖池设置
           </button>
+          <button
+            className={view === 'settings' ? 'is-active' : ''}
+            type="button"
+            aria-current={view === 'settings' ? 'page' : undefined}
+            onClick={() => setView('settings')}
+          >
+            <Eye size={17} aria-hidden="true" />
+            前台展示
+          </button>
         </nav>
 
         {feedback ? (
@@ -355,7 +425,7 @@ export function WaterAdminPage() {
             onComplete={(coupon) => void completeRedemption(coupon)}
             onFeedback={setFeedback}
           />
-        ) : (
+        ) : view === 'rewards' ? (
           <RewardPool
             rewards={rewards}
             loading={loadingRewards}
@@ -363,6 +433,15 @@ export function WaterAdminPage() {
             savingReward={savingReward}
             onShowNew={setShowNewReward}
             onSave={saveReward}
+          />
+        ) : (
+          <WaterSettingsPanel
+            settings={settings}
+            draftEnabled={tarotPromoDraft}
+            loading={loadingSettings}
+            saving={savingSettings}
+            onDraft={setTarotPromoDraft}
+            onSave={() => void saveSettings()}
           />
         )}
 
@@ -746,6 +825,83 @@ function CouponSkeleton() {
         </div>
       ))}
     </div>
+  )
+}
+
+function WaterSettingsPanel({
+  settings,
+  draftEnabled,
+  loading,
+  saving,
+  onDraft,
+  onSave,
+}: {
+  settings: WaterSettings | null
+  draftEnabled: boolean
+  loading: boolean
+  saving: boolean
+  onDraft: (enabled: boolean) => void
+  onSave: () => void
+}) {
+  const dirty = settings !== null && draftEnabled !== settings.tarotPromoEnabled
+
+  return (
+    <section className="water-admin-panel water-admin-settings" aria-labelledby="water-settings-title">
+      <div className="water-admin-panel__heading">
+        <div>
+          <span className="water-admin-eyebrow">Frontend visibility</span>
+          <h2 id="water-settings-title">喝水页展示设置</h2>
+          <p>控制喝水首页是否展示“占卜屋开业啦”宣传画入口。</p>
+        </div>
+        {settings?.updatedAt ? (
+          <span className="water-admin-sync-time">配置更新 {formatDate(settings.updatedAt, true)}</span>
+        ) : null}
+      </div>
+
+      {loading && !settings ? (
+        <div className="water-admin-skeleton water-admin-skeleton--setting" aria-label="正在加载展示设置" />
+      ) : (
+        <form
+          className="water-admin-setting-card"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSave()
+          }}
+        >
+          <div className="water-admin-setting-card__copy">
+            <span className={`water-admin-setting-state${draftEnabled ? ' is-online' : ''}`}>
+              {draftEnabled ? '当前草稿：上线' : '当前草稿：下线'}
+            </span>
+            <h3>占卜宣传画</h3>
+            <p id="tarot-promo-setting-help">
+              开启后，喝水页面展示史努比女巫宣传画并可跳转占卜屋；关闭并保存后，该入口会从喝水页面隐藏。
+            </p>
+          </div>
+
+          <label className="water-admin-toggle-field water-admin-toggle-field--setting">
+            <span>宣传画上线开关</span>
+            <input
+              type="checkbox"
+              checked={draftEnabled}
+              disabled={loading || saving || !settings}
+              aria-describedby="tarot-promo-setting-help"
+              onChange={(event) => onDraft(event.target.checked)}
+            />
+            <span className="water-admin-toggle" aria-hidden="true"><span /></span>
+            <strong>{draftEnabled ? '显示' : '隐藏'}</strong>
+          </label>
+
+          <button
+            className="water-admin-save-button"
+            type="submit"
+            disabled={loading || saving || !dirty}
+          >
+            <Save size={15} aria-hidden="true" />
+            {saving ? '保存中…' : dirty ? '保存展示设置' : '设置已保存'}
+          </button>
+        </form>
+      )}
+    </section>
   )
 }
 

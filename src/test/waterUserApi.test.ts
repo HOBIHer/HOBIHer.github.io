@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import {
   addWater,
   getPendingScratchCoupon,
+  getWaterPublicSettings,
   getWaterCouponScratchedAt,
   getWaterUserMode,
   getWaterUserState,
@@ -14,6 +15,7 @@ import {
   listWaterCoupons,
   loginWaterAdmin,
   markWaterCouponRedeemed,
+  updateWaterSettings,
 } from '../lib/waterApi'
 
 describe('water user browser flow', () => {
@@ -27,6 +29,8 @@ describe('water user browser flow', () => {
     window.sessionStorage.clear()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
+    vi.stubEnv('VITE_WATER_USER_MOCK', 'true')
+    vi.stubEnv('VITE_WATER_ADMIN_MOCK', 'true')
   })
 
   afterEach(() => {
@@ -41,6 +45,7 @@ describe('water user browser flow', () => {
       waterMl: 0,
       bottleRemainingMl: 1000,
       redeemedAmount: 0,
+      tarotPromoEnabled: true,
     })
 
     await addWater(250)
@@ -74,6 +79,15 @@ describe('water user browser flow', () => {
     const refreshed = await listWaterUserCoupons()
     expect(refreshed).toHaveLength(1)
     expect(refreshed[0].status).toBe('redeemed')
+  })
+
+  it('reads the admin-controlled tarot promotion switch from the shared mock service', async () => {
+    expect(await getWaterPublicSettings()).toMatchObject({ tarotPromoEnabled: true })
+
+    const session = await loginWaterAdmin('admin', 'admin')
+    await updateWaterSettings(session, { tarotPromoEnabled: false })
+
+    expect(await getWaterPublicSettings()).toMatchObject({ tarotPromoEnabled: false })
   })
 
   it('issues a different coupon instance for every completed bottle', async () => {
@@ -157,6 +171,7 @@ describe('water user browser flow', () => {
     expect(state.waterMl).toBe(20)
     expect(state.bottleRemainingMl).toBe(980)
     expect(state.redeemedAmount).toBe(88)
+    expect(state.tarotPromoEnabled).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(2)
 
     const firstHeaders = new Headers(fetchMock.mock.calls[0][1]?.headers)
@@ -165,6 +180,32 @@ describe('water user browser flow', () => {
     expect(firstHeaders.has('authorization')).toBe(false)
     expect(secondHeaders.get('x-water-device-id')).toBe('11111111-1111-4111-8111-111111111111')
     expect(secondHeaders.has('authorization')).toBe(false)
+  })
+
+  it('loads public settings remotely without registering a device', async () => {
+    vi.stubEnv('VITE_WATER_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('VITE_WATER_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_value')
+    vi.stubEnv('VITE_WATER_USER_MOCK', 'false')
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      ok: true,
+      data: { tarot_promo_enabled: false, updated_at: '2026-09-01T00:00:00.000Z' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const settings = await getWaterPublicSettings()
+
+    expect(settings).toEqual({
+      tarotPromoEnabled: false,
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = fetchMock.mock.calls[0][1]
+    const headers = new Headers(request?.headers)
+    const body = JSON.parse(String(request?.body))
+    expect(body).toEqual({ action: 'getSettings' })
+    expect(headers.get('apikey')).toBe('sb_publishable_test_value')
+    expect(headers.has('x-water-device-id')).toBe(false)
+    expect(headers.has('authorization')).toBe(false)
   })
 
   it('reconciles a different pending amount before applying the current click', async () => {

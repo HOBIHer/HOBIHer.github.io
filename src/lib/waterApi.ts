@@ -65,6 +65,15 @@ export interface WaterRewardInput {
   sortOrder?: number
 }
 
+export interface WaterSettings {
+  tarotPromoEnabled: boolean
+  updatedAt: string | null
+}
+
+export interface WaterSettingsInput {
+  tarotPromoEnabled: boolean
+}
+
 export interface ListWaterCouponsInput {
   status?: WaterCouponFilter
   query?: string
@@ -314,6 +323,50 @@ export async function listWaterRewards(session: WaterAdminSession): Promise<Wate
   return Array.isArray(rows) ? rows.map(normalizeReward) : []
 }
 
+export async function getWaterSettings(session: WaterAdminSession): Promise<WaterSettings> {
+  if (getWaterApiMode() === 'mock') {
+    await mockLatency()
+    ensureMockSession(session)
+    return readMockDatabase().settings
+  }
+
+  const data = await callWaterAdmin<unknown>({ action: 'getSettings' }, session)
+  const record = asRecord(data)
+  return normalizeSettings(record.settings ?? data)
+}
+
+export async function updateWaterSettings(
+  session: WaterAdminSession,
+  input: WaterSettingsInput,
+): Promise<WaterSettings> {
+  if (typeof input.tarotPromoEnabled !== 'boolean') {
+    throw new WaterApiError('占卜宣传画开关必须是布尔值', 'INVALID_TAROT_PROMO_SETTING')
+  }
+
+  if (getWaterApiMode() === 'mock') {
+    await mockLatency()
+    ensureMockSession(session)
+    const database = readMockDatabase()
+    database.settings = {
+      tarotPromoEnabled: input.tarotPromoEnabled,
+      updatedAt: new Date().toISOString(),
+    }
+    saveMockDatabase(database)
+    return database.settings
+  }
+
+  const data = await callWaterAdmin<unknown>(
+    {
+      action: 'updateSettings',
+      settings: { tarotPromoEnabled: input.tarotPromoEnabled },
+      tarotPromoEnabled: input.tarotPromoEnabled,
+    },
+    session,
+  )
+  const record = asRecord(data)
+  return normalizeSettings(record.settings ?? data)
+}
+
 export async function upsertWaterReward(
   session: WaterAdminSession,
   input: WaterRewardInput,
@@ -516,6 +569,17 @@ function normalizeReward(value: unknown): WaterReward {
   }
 }
 
+function normalizeSettings(value: unknown): WaterSettings {
+  const record = asRecord(value)
+  return {
+    tarotPromoEnabled: booleanValue(
+      record.tarotPromoEnabled ?? record.tarot_promo_enabled,
+      true,
+    ),
+    updatedAt: nullableString(record.updatedAt ?? record.updated_at),
+  }
+}
+
 function normalizeCouponStatus(value: unknown): WaterCouponStatus {
   const status = stringValue(value).toLowerCase()
   if (['redemption_requested', 'requested', 'pending', 'claim_requested'].includes(status)) {
@@ -606,6 +670,7 @@ function ensureMockSession(session: WaterAdminSession): void {
 interface MockDatabase {
   coupons: unknown[]
   rewards: unknown[]
+  settings: WaterSettings
 }
 
 function readMockDatabase(): MockDatabase {
@@ -615,7 +680,11 @@ function readMockDatabase(): MockDatabase {
     if (raw) {
       const parsed = JSON.parse(raw) as UnknownRecord
       if (Array.isArray(parsed.coupons) && Array.isArray(parsed.rewards)) {
-        return { coupons: parsed.coupons, rewards: parsed.rewards }
+        return {
+          coupons: parsed.coupons,
+          rewards: parsed.rewards,
+          settings: normalizeSettings(parsed.settings),
+        }
       }
     }
   } catch {
@@ -757,7 +826,11 @@ function createMockDatabase(): MockDatabase {
     mockCoupon('coupon-6', 'H2O-8G1U-5K4R', 'LOVE-9W3B', rewards[0], 'issued', isoDaysAgo(0)),
   ]
 
-  return { coupons, rewards }
+  return {
+    coupons,
+    rewards,
+    settings: { tarotPromoEnabled: true, updatedAt: isoDaysAgo(0) },
+  }
 }
 
 function mockCoupon(

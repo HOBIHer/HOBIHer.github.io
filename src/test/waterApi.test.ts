@@ -1,10 +1,12 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  getWaterSettings,
   getWaterApiMode,
   listWaterCoupons,
   listWaterRewards,
   loginWaterAdmin,
   markWaterCouponRedeemed,
+  updateWaterSettings,
   upsertWaterReward,
 } from '../lib/waterApi'
 
@@ -17,6 +19,13 @@ describe('water reward admin mock', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.sessionStorage.clear()
+    vi.stubEnv('VITE_WATER_ADMIN_MOCK', 'true')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
   })
 
   it('keeps demo credentials and coupon state transitions testable offline', async () => {
@@ -131,7 +140,54 @@ describe('water reward admin mock', () => {
     ])
     expect(rewards.reduce((sum, reward) => sum + reward.weight, 0)).toBe(10_000)
   })
+
+  it('persists the tarot promotion switch in the shared mock database', async () => {
+    const session = await loginWaterAdmin('admin', 'admin')
+
+    expect(await getWaterSettings(session)).toMatchObject({ tarotPromoEnabled: true })
+    const saved = await updateWaterSettings(session, { tarotPromoEnabled: false })
+    expect(saved).toMatchObject({ tarotPromoEnabled: false })
+    expect(saved.updatedAt).toBeTruthy()
+    expect(await getWaterSettings(session)).toEqual(saved)
+
+    const database = JSON.parse(window.localStorage.getItem('water-admin-mock-db-v2')!)
+    expect(database.settings.tarotPromoEnabled).toBe(false)
+  })
+
+  it('sends authenticated settings updates to the remote admin function', async () => {
+    vi.stubEnv('VITE_WATER_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('VITE_WATER_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_value')
+    vi.stubEnv('VITE_WATER_ADMIN_MOCK', 'false')
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      ok: true,
+      data: { tarotPromoEnabled: false, updatedAt: '2026-09-01T00:00:00.000Z' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await updateWaterSettings(
+      { token: 'admin-session-token', expiresAt: '2099-01-01T00:00:00.000Z' },
+      { tarotPromoEnabled: false },
+    )
+
+    expect(result.tarotPromoEnabled).toBe(false)
+    const request = fetchMock.mock.calls[0][1]
+    const headers = new Headers(request?.headers)
+    const body = JSON.parse(String(request?.body))
+    expect(headers.get('apikey')).toBe('sb_publishable_test_value')
+    expect(headers.get('authorization')).toBe('Bearer admin-session-token')
+    expect(body).toMatchObject({
+      action: 'updateSettings',
+      settings: { tarotPromoEnabled: false },
+    })
+  })
 })
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>()

@@ -1023,6 +1023,81 @@
   background: rgba(43, 107, 126, 0.08);
 }
 
+.water-admin-settings {
+  min-height: 20rem;
+}
+
+.water-admin-setting-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1.2rem;
+  border: 1px solid var(--water-line);
+  border-radius: 12px;
+  padding: 1.15rem;
+  background:
+    linear-gradient(135deg, rgba(183, 161, 255, 0.08), transparent 48%),
+    rgba(7, 20, 29, 0.64);
+}
+
+.water-admin-setting-card__copy {
+  min-width: 0;
+}
+
+.water-admin-setting-card__copy h3 {
+  margin: 0.42rem 0 0;
+  font-size: 1rem;
+}
+
+.water-admin-setting-card__copy p {
+  max-width: 44rem;
+  margin: 0.42rem 0 0;
+  color: var(--water-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.water-admin-setting-state {
+  display: inline-flex;
+  border: 1px solid rgba(255, 145, 142, 0.24);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  color: #ffb4b1;
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(148, 54, 55, 0.1);
+}
+
+.water-admin-setting-state.is-online {
+  border-color: rgba(107, 226, 195, 0.3);
+  color: var(--water-mint);
+  background: rgba(40, 128, 105, 0.12);
+}
+
+.water-admin-toggle-field--setting {
+  min-width: 9.7rem;
+  display: grid;
+  gap: 0.3rem 0.5rem;
+  color: #a4bcc6;
+  font-size: 0.68rem;
+  font-weight: 680;
+}
+
+.water-admin-setting-card .water-admin-save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.water-admin-skeleton--setting {
+  min-height: 8rem;
+  background: linear-gradient(100deg, rgba(125, 174, 189, 0.03), rgba(125, 174, 189, 0.1), rgba(125, 174, 189, 0.03));
+  background-size: 200% 100%;
+  animation: water-admin-shimmer 1.25s linear infinite;
+}
+
 .water-admin-reward-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1408,6 +1483,14 @@
   .water-admin-reward-grid {
     grid-template-columns: 1fr;
   }
+
+  .water-admin-setting-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .water-admin-setting-card__copy {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1471,6 +1554,16 @@
     grid-template-columns: 1fr;
   }
 
+  .water-admin-setting-card {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .water-admin-toggle-field--setting,
+  .water-admin-setting-card .water-admin-save-button {
+    width: 100%;
+  }
+
   .water-admin-reward-fields__wide {
     grid-column: auto;
   }
@@ -1522,7 +1615,7 @@
   }
 
   .water-admin-tabs button {
-    flex: 1 1 50%;
+    flex: 1 1 33.333%;
     justify-content: center;
     padding-inline: 0.45rem;
   }

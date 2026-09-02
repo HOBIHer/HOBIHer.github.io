@@ -90,15 +90,22 @@ Deno.serve(async (request: Request): Promise<Response> => {
       return ok({ ...state, deviceToken });
     }
 
+    if (action === "getSettings") {
+      return ok(await rpc("water_get_public_settings", {}));
+    }
+
     const { deviceId, deviceToken } = getDeviceCredentials(request, body);
 
     switch (action) {
       case "getState": {
-        const state = await rpc("water_get_state", {
-          p_device_id: deviceId,
-          p_device_token: deviceToken,
-        });
-        return ok(state);
+        const [state, settings] = await Promise.all([
+          rpc<Record<string, unknown>>("water_get_state", {
+            p_device_id: deviceId,
+            p_device_token: deviceToken,
+          }),
+          rpc<Record<string, unknown>>("water_get_public_settings", {}),
+        ]);
+        return ok({ ...state, ...settings });
       }
 
       case "addWater": {

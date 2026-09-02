@@ -1,4 +1,14 @@
-import { Anchor, Crown, Droplets, Flame, LockKeyhole, ShieldCheck, Sparkles, Trophy } from 'lucide-react'
+import {
+  Anchor,
+  Crown,
+  Droplets,
+  Flame,
+  LockKeyhole,
+  MoonStar,
+  ShieldCheck,
+  Sparkles,
+  Trophy,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const placeholders = ['星海档案', '炼金工坊', '云端秘境']
@@ -61,6 +71,16 @@ export function LandingPage() {
             <span>
               <strong>喝水记录</strong>
               <small>从水瓶取水，喝空结算刮刮乐</small>
+            </span>
+          </Link>
+
+          <Link className="portal-card portal-card--tarot" to="/tarot">
+            <span className="portal-card__icon" aria-hidden="true">
+              <MoonStar size={24} />
+            </span>
+            <span>
+              <strong>史努比塔罗</strong>
+              <small>小豆泥猫爪的 2.5D 物理牌桌</small>
             </span>
           </Link>
 

@@ -151,4 +151,18 @@ describe('supabase migrations', () => {
     expect(migration).toContain("and c.status = 'redeemed'")
     expect(migration).toContain('water_coupons_device_redeemed_idx')
   })
+
+  it('stores the water tarot promotion switch behind service-role RPCs', () => {
+    const migration = readMigration('007_water_promo_settings.sql')
+
+    expect(migration).toContain('create table if not exists public.water_settings')
+    expect(migration).toContain('tarot_promo_enabled boolean not null default true')
+    expect(migration).toContain('function public.water_get_public_settings')
+    expect(migration).toContain('function public.water_admin_get_settings')
+    expect(migration).toContain('function public.water_admin_update_settings')
+    expect(migration).toContain('alter table public.water_settings enable row level security')
+    expect(migration).toContain('revoke all on table public.water_settings from public, anon, authenticated')
+    expect(migration).toContain('grant execute on function public.water_admin_update_settings(boolean) to service_role')
+    expect(migration).toContain("'update_settings'")
+  })
 })

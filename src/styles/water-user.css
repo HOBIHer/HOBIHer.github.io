@@ -214,6 +214,54 @@
   font-size: 0.68rem;
 }
 
+.water-tarot-promo {
+  position: relative;
+  display: block;
+  aspect-ratio: 1448 / 640;
+  overflow: hidden;
+  border: 1px solid rgba(226, 193, 255, 0.58);
+  border-radius: 1.25rem;
+  background: #111c3d;
+  box-shadow: 0 15px 34px rgba(40, 37, 90, 0.2);
+  text-decoration: none;
+  transform: translateY(0);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.water-tarot-promo:not(.water-tarot-promo--loading):hover {
+  box-shadow: 0 19px 40px rgba(40, 37, 90, 0.27);
+  transform: translateY(-0.16rem) scale(1.008);
+}
+
+.water-tarot-promo:not(.water-tarot-promo--loading):active {
+  transform: translateY(0) scale(0.992);
+}
+
+.water-tarot-promo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.water-tarot-promo--loading {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.55rem;
+  color: rgba(220, 224, 255, 0.92);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(126, 105, 218, 0.32), transparent 58%),
+    #111c3d;
+  cursor: wait;
+}
+
+.water-tarot-promo--loading span {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
 .water-bottle-stage {
   position: relative;
   display: grid;
@@ -1241,6 +1289,25 @@
 
   .water-user-header {
     border-radius: 2rem 2rem 0 0;
+  }
+}
+
+@media (min-width: 1120px) {
+  .water-tarot-promo {
+    position: fixed;
+    z-index: 15;
+    top: 50%;
+    left: calc(50% + 17.15rem);
+    width: min(20rem, calc((100vw - 500px) / 2 - 2rem));
+    transform: translateY(-50%);
+  }
+
+  .water-tarot-promo:not(.water-tarot-promo--loading):hover {
+    transform: translateY(calc(-50% - 0.16rem)) scale(1.008);
+  }
+
+  .water-tarot-promo:not(.water-tarot-promo--loading):active {
+    transform: translateY(-50%) scale(0.992);
   }
 }
 

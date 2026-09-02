@@ -69,10 +69,18 @@ function boundedInteger(
   return parsed;
 }
 
-function booleanValue(value: unknown, fallback: boolean): boolean {
+function booleanValue(
+  value: unknown,
+  fallback: boolean,
+  field = "enabled",
+): boolean {
   if (value === undefined || value === null) return fallback;
   if (typeof value !== "boolean") {
-    throw new WaterApiError("INVALID_ARGUMENT", "enabled 必须是布尔值。", 400);
+    throw new WaterApiError(
+      "INVALID_ARGUMENT",
+      `${field} 必须是布尔值。`,
+      400,
+    );
   }
   return value;
 }
@@ -170,6 +178,26 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
       case "listRewards":
         return ok(await rpc("water_admin_list_rewards"));
+
+      case "getSettings":
+        return ok(await rpc("water_admin_get_settings"));
+
+      case "updateSettings": {
+        const nested = body.settings && typeof body.settings === "object" &&
+            !Array.isArray(body.settings)
+          ? body.settings as Record<string, unknown>
+          : body;
+        const tarotPromoEnabled = booleanValue(
+          nested.tarotPromoEnabled ?? nested.tarot_promo_enabled,
+          true,
+          "tarotPromoEnabled",
+        );
+        return ok(
+          await rpc("water_admin_update_settings", {
+            p_tarot_promo_enabled: tarotPromoEnabled,
+          }),
+        );
+      }
 
       case "upsertReward": {
         const nested = body.reward && typeof body.reward === "object" &&

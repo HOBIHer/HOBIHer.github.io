@@ -23,6 +23,8 @@ export interface WaterUserState {
   remainingDailyMl: number
   /** Sum of this user's redeemed cash_N coupons; mystery rewards have no fixed cash value. */
   redeemedAmount: number
+  /** Server-controlled visibility of the water-page tarot promotion. */
+  tarotPromoEnabled: boolean
 }
 
 export interface WaterUserCoupon {
@@ -47,6 +49,11 @@ export interface AddWaterResult {
   appliedAmountMl: number
   recovered: boolean
   recoveredAmountMl?: number
+}
+
+export interface WaterPublicSettings {
+  tarotPromoEnabled: boolean
+  updatedAt: string | null
 }
 
 interface WaterUserConfig {
@@ -76,6 +83,7 @@ interface MockUserState {
 interface MockLedger {
   coupons: unknown[]
   rewards: unknown[]
+  settings: WaterPublicSettings
 }
 
 interface ApiEnvelope<T> {
@@ -125,6 +133,17 @@ export function getWaterUserMode(): WaterUserMode {
   return config.endpoint && config.publishableKey ? 'remote' : 'misconfigured'
 }
 
+export async function getWaterPublicSettings(): Promise<WaterPublicSettings> {
+  if (getWaterUserMode() === 'mock') {
+    await mockLatency()
+    return readMockLedger().settings
+  }
+
+  const data = await requestRemote<unknown>('getSettings')
+  const record = asRecord(data)
+  return normalizePublicSettings(record.settings ?? data)
+}
+
 export async function getWaterUserState(): Promise<WaterUserState> {
   if (getWaterUserMode() === 'mock') {
     await mockLatency()
@@ -133,6 +152,7 @@ export async function getWaterUserState(): Promise<WaterUserState> {
     return normalizeState({
       ...state,
       redeemedAmount: mockRedeemedAmount(state, ledger),
+      tarotPromoEnabled: ledger.settings.tarotPromoEnabled,
     })
   }
 
@@ -496,6 +516,10 @@ function normalizeState(value: unknown): WaterUserState {
     record.redeemedAmount ?? record.redeemed_amount,
     0,
   )))
+  const tarotPromoEnabled = booleanValue(
+    record.tarotPromoEnabled ?? record.tarot_promo_enabled,
+    true,
+  )
   return {
     waterMl,
     bottleRemainingMl,
@@ -507,6 +531,7 @@ function normalizeState(value: unknown): WaterUserState {
     dailyLimitReached,
     remainingDailyMl,
     redeemedAmount,
+    tarotPromoEnabled,
   }
 }
 
@@ -531,6 +556,17 @@ function normalizeCoupon(value: unknown): WaterUserCoupon {
     redeemedAt: nullableString(record.redeemedAt ?? record.redeemed_at ?? record.completedAt),
     requestId: nullableString(record.requestId ?? record.request_id ?? record.redemptionRequestId),
     scratchedAt: nullableString(record.scratchedAt ?? record.scratched_at) || getWaterCouponScratchedAt(code) || null,
+  }
+}
+
+function normalizePublicSettings(value: unknown): WaterPublicSettings {
+  const record = asRecord(value)
+  return {
+    tarotPromoEnabled: booleanValue(
+      record.tarotPromoEnabled ?? record.tarot_promo_enabled,
+      true,
+    ),
+    updatedAt: nullableString(record.updatedAt ?? record.updated_at),
   }
 }
 
@@ -580,7 +616,11 @@ function saveMockUserState(state: MockUserState): void {
 function readMockLedger(): MockLedger {
   const stored = readStorage<Partial<MockLedger> | null>(STORAGE_KEYS.sharedAdminLedger, null)
   if (stored && Array.isArray(stored.coupons) && Array.isArray(stored.rewards)) {
-    return { coupons: stored.coupons, rewards: stored.rewards }
+    return {
+      coupons: stored.coupons,
+      rewards: stored.rewards,
+      settings: normalizePublicSettings(stored.settings),
+    }
   }
   const ledger = createMockLedger()
   saveMockLedger(ledger)
@@ -614,6 +654,7 @@ function createMockLedger(): MockLedger {
   const now = new Date().toISOString()
   return {
     coupons: [],
+    settings: { tarotPromoEnabled: true, updatedAt: now },
     rewards: [
       mockReward('reward-cash-10', 'cash_10', '10元现金红包', '线下兑换10元现金红包。', 3000, 10, now),
       mockReward('reward-cash-20', 'cash_20', '20元现金红包', '线下兑换20元现金红包。', 2500, 20, now),

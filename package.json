@@ -15,16 +15,20 @@
     "@supabase/supabase-js": "^2.50.3",
     "@vitejs/plugin-react": "^4.3.4",
     "lucide-react": "^0.468.0",
+    "matter-js": "^0.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
+    "@types/matter-js": "^0.20.2",
     "@types/node": "^26.0.0",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.185.4",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",

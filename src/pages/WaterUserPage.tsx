@@ -37,6 +37,12 @@ const SCRATCH_REVEAL_THRESHOLD = 0.42
 const DRINK_ANIMATION_FRAME_COUNT = 8
 const DRINK_ANIMATION_FRAME_DURATION_MS = 180
 const DRINK_ANIMATION_DURATION_MS = DRINK_ANIMATION_FRAME_COUNT * DRINK_ANIMATION_FRAME_DURATION_MS
+const TAROT_PROMO_IMAGE_SRC = `${import.meta.env.BASE_URL}assets/water/snoopy-tarot-banner-v1.webp`
+const TAROT_PROMO_PRELOAD_TIMEOUT_MS = 10_000
+
+type TarotPromoImageStatus = 'loading' | 'ready' | 'failed'
+
+let tarotPromoImageReady = false
 
 type WaterTab = 'water' | 'coupons'
 
@@ -51,11 +57,16 @@ const EMPTY_STATE: WaterUserState = {
   dailyLimitReached: false,
   remainingDailyMl: 2000,
   redeemedAmount: 0,
+  tarotPromoEnabled: true,
 }
 
 export function WaterUserPage() {
   const [tab, setTab] = useState<WaterTab>('water')
   const [waterState, setWaterState] = useState<WaterUserState>(EMPTY_STATE)
+  const [tarotPromoEnabled, setTarotPromoEnabled] = useState<boolean | null>(null)
+  const [tarotPromoImageStatus, setTarotPromoImageStatus] = useState<TarotPromoImageStatus>(
+    () => tarotPromoImageReady ? 'ready' : 'loading',
+  )
   const [coupons, setCoupons] = useState<WaterUserCoupon[]>([])
   const [scratchCoupon, setScratchCoupon] = useState<WaterUserCoupon | null>(() => {
     const pending = getPendingScratchCoupon()
@@ -94,6 +105,7 @@ export function WaterUserPage() {
       if (!mounted.current || sequence !== requestSequence.current) return
       setWaterState(nextState)
       setCoupons(nextCoupons)
+      setTarotPromoEnabled(nextState.tarotPromoEnabled)
 
       const pending = getPendingScratchCoupon()
       if (pending && getWaterCouponScratchedAt(pending.code)) setPendingScratchCoupon(null)
@@ -102,7 +114,62 @@ export function WaterUserPage() {
       if (!mounted.current || sequence !== requestSequence.current) return
       setError(messageOf(loadError, '进度加载失败，请稍后重试。'))
     } finally {
-      if (mounted.current && sequence === requestSequence.current) setLoading(false)
+      if (mounted.current && sequence === requestSequence.current) {
+        setLoading(false)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tarotPromoImageReady) {
+      setTarotPromoImageStatus('ready')
+      return
+    }
+
+    let active = true
+    let settled = false
+    let readyStarted = false
+    let timeoutId: number | null = null
+    const image = new Image()
+
+    const settleImage = (status: Exclude<TarotPromoImageStatus, 'loading'>) => {
+      if (settled) return
+      settled = true
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+      image.onload = null
+      image.onerror = null
+      if (status === 'ready') tarotPromoImageReady = true
+      if (active) setTarotPromoImageStatus(status)
+    }
+
+    const settleReady = () => {
+      if (settled || readyStarted) return
+      readyStarted = true
+      const decoded = typeof image.decode === 'function'
+        ? image.decode().catch(() => undefined)
+        : Promise.resolve()
+      void decoded.then(() => settleImage('ready'))
+    }
+
+    setTarotPromoImageStatus('loading')
+    image.onload = settleReady
+    image.onerror = () => settleImage('failed')
+    timeoutId = window.setTimeout(
+      () => settleImage('failed'),
+      TAROT_PROMO_PRELOAD_TIMEOUT_MS,
+    )
+    image.src = TAROT_PROMO_IMAGE_SRC
+
+    if (image.complete) {
+      if (image.naturalWidth > 0) settleReady()
+      else settleImage('failed')
+    }
+
+    return () => {
+      active = false
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+      image.onload = null
+      image.onerror = null
     }
   }, [])
 
@@ -291,6 +358,32 @@ export function WaterUserPage() {
                 <Gift size={20} />
                 <span><strong>有 1 张刮刮乐待揭晓</strong><small>点击继续刮开</small></span>
               </button>
+            ) : null}
+
+            {tarotPromoEnabled === true ? (
+              tarotPromoImageStatus === 'ready' ? (
+                <Link
+                  className="water-tarot-promo"
+                  to="/tarot"
+                  aria-label="进入塔罗占卜屋：占卜屋开业啦，来逛逛吧"
+                >
+                  <img
+                    src={TAROT_PROMO_IMAGE_SRC}
+                    alt="史努比戴着女巫帽，在魔法占卜屋门口招手"
+                  />
+                </Link>
+              ) : tarotPromoImageStatus === 'loading' ? (
+                <div
+                  className="water-tarot-promo water-tarot-promo--loading"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  aria-busy="true"
+                >
+                  <RefreshCw className="is-spinning" size={22} aria-hidden="true" />
+                  <span>公告加载中…</span>
+                </div>
+              ) : null
             ) : null}
 
             <div className={`water-bottle-stage${drinkAnimation ? ' is-animating' : ''}`}>

@@ -741,6 +741,12 @@ h3 {
     rgba(14, 18, 28, 0.78);
 }
 
+.portal-card--tarot {
+  background:
+    linear-gradient(135deg, rgba(30, 18, 48, 0.58), rgba(14, 44, 50, 0.7)),
+    url("/assets/tarot/card-back.webp") center 38% / cover no-repeat;
+}
+
 .portal-card--locked {
   color: rgba(255, 248, 232, 0.68);
   background: rgba(18, 22, 32, 0.64);
