@@ -17,6 +17,19 @@ function tarotAssetUrl(filename: string) {
   return `${import.meta.env.BASE_URL}assets/tarot/${filename}`
 }
 
+const TAROT_STARTUP_UI_ASSETS = [
+  tarotAssetUrl('collapse-fan-button-v1.webp'),
+  tarotAssetUrl('return-all-button-v1.webp'),
+  tarotAssetUrl('reveal-button-v2.webp'),
+] as const
+
+function tarotLoadingPhase(progress: number) {
+  if (progress < 25) return '正在铺开月光牌桌…'
+  if (progress < 80) return '正在唤醒史努比塔罗牌…'
+  if (progress < 97) return '正在请小豆泥猫爪就位…'
+  return '正在稳固最后的魔法结界…'
+}
+
 function SpreadGlyph({ spread }: { spread: (typeof TAROT_SPREADS)[number] }) {
   return (
     <span className={`tarot-spread-glyph__diagram tarot-spread-glyph__diagram--${spread.id}`}>
@@ -144,6 +157,7 @@ export function TarotTablePage() {
       scene = new TarotScene(host, {
         cards: TAROT_CARDS,
         initialSpreadId: DEFAULT_SPREAD_ID,
+        preloadAssetUrls: TAROT_STARTUP_UI_ASSETS,
         maxPixelRatio: 2,
         reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       })
@@ -169,6 +183,11 @@ export function TarotTablePage() {
     getTarotSpread(sceneSnapshot?.spreadId ?? DEFAULT_SPREAD_ID) ?? TAROT_SPREADS[0]
   const placedCards = sceneSnapshot?.placedCards ?? []
   const activeSceneError = sceneError ?? sceneSnapshot?.error ?? null
+  const sceneReady = sceneSnapshot?.ready === true && !activeSceneError
+  const loadingProgress = sceneReady
+    ? 100
+    : Math.min(99, Math.max(0, sceneSnapshot?.loadingProgress ?? 0))
+  const loadingPhase = tarotLoadingPhase(loadingProgress)
   const sceneBusy =
     sceneSnapshot?.mode === 'spreading' ||
     sceneSnapshot?.mode === 'repairing' ||
@@ -280,7 +299,7 @@ export function TarotTablePage() {
 
         <div
           className={`tarot-ready-state${activeSceneError ? ' tarot-ready-state--error' : ''}`}
-          role="status"
+          aria-hidden="true"
         >
           <span aria-hidden="true" />
           {activeSceneError
@@ -292,7 +311,11 @@ export function TarotTablePage() {
       </header>
 
       <div className="tarot-workspace">
-        <section className="tarot-table-stage" aria-labelledby="tarot-table-title">
+        <section
+          className={`tarot-table-stage${activeSceneError ? ' has-error' : sceneReady ? ' is-ready' : ' is-loading'}`}
+          aria-labelledby="tarot-table-title"
+          aria-busy={!sceneReady && !activeSceneError}
+        >
           <h2 className="tarot-sr-only" id="tarot-table-title">
             {currentSpread.nameZh}塔罗牌桌
           </h2>
@@ -306,12 +329,14 @@ export function TarotTablePage() {
           <div
             ref={sceneHostRef}
             className="tarot-scene-host"
+            aria-hidden={sceneReady ? undefined : true}
             aria-label="点击牌堆展开牌扇；长按卡牌蓄力抓起；放大后轻拖牌面可左右浏览"
           />
 
-          <div
-            className={`tarot-table-tools${placedCards.length > 0 ? ' has-reveal-control' : ''}`}
-          >
+          {sceneReady ? (
+            <div
+              className={`tarot-table-tools${placedCards.length > 0 ? ' has-reveal-control' : ''}`}
+            >
             <div className="tarot-table-surface-actions">
               <button
                 className="tarot-table-action tarot-table-action--collapse"
@@ -384,16 +409,39 @@ export function TarotTablePage() {
                 />
               </button>
             ) : null}
-          </div>
+            </div>
+          ) : null}
 
           <p className="tarot-sr-only" aria-live="polite">
             {notice}
           </p>
 
-          {!sceneSnapshot?.ready && !activeSceneError ? (
-            <div className="tarot-loading" role="status">
-              <Sparkles aria-hidden="true" size={22} />
-              正在摆放卡牌与小豆泥猫爪…
+          {!sceneReady && !activeSceneError ? (
+            <div
+              className="tarot-loading"
+              role="status"
+              aria-live="polite"
+              aria-atomic="false"
+            >
+              <div className="tarot-loading__panel">
+                <span className="tarot-loading__spark" aria-hidden="true">
+                  <Sparkles size={28} />
+                </span>
+                <strong>正在生成牌桌</strong>
+                <span className="tarot-loading__phase">{loadingPhase}</span>
+                <div
+                  className="tarot-loading__progress"
+                  role="progressbar"
+                  aria-label="牌桌加载进度"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={loadingProgress}
+                  aria-valuetext={`约 ${loadingProgress}%`}
+                >
+                  <i style={{ width: `${loadingProgress}%` }} />
+                </div>
+                <b aria-hidden="true">{loadingProgress}%</b>
+              </div>
             </div>
           ) : null}
           {activeSceneError ? (

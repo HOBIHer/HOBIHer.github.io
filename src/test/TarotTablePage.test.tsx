@@ -6,6 +6,7 @@ import type { TarotPlacedCard, TarotSceneSnapshot } from '../tarot/TarotScene'
 const sceneMock = vi.hoisted(() => ({
   snapshot: null as TarotSceneSnapshot | null,
   listener: null as ((snapshot: TarotSceneSnapshot) => void) | null,
+  preloadAssetUrls: [] as readonly string[],
   mount: vi.fn(),
   destroy: vi.fn(),
   unsubscribe: vi.fn(),
@@ -21,6 +22,10 @@ const sceneMock = vi.hoisted(() => ({
 
 vi.mock('../tarot/TarotScene', () => ({
   TarotScene: class MockTarotScene {
+    constructor(_host: HTMLElement, options: { preloadAssetUrls?: readonly string[] } = {}) {
+      sceneMock.preloadAssetUrls = options.preloadAssetUrls ?? []
+    }
+
     mount() {
       sceneMock.mount()
       return this
@@ -93,6 +98,9 @@ function makeSnapshot(placedCards: readonly TarotPlacedCard[]): TarotSceneSnapsh
   const hasHiddenCard = placedCards.some((card) => !card.revealed)
   return {
     ready: true,
+    loadingProgress: 100,
+    loadedAssets: 89,
+    totalAssets: 89,
     error: null,
     mode: 'fan',
     spreadId: 'single',
@@ -125,6 +133,7 @@ describe('TarotTablePage reveal flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sceneMock.listener = null
+    sceneMock.preloadAssetUrls = []
     sceneMock.snapshot = makeSnapshot([hiddenCard])
     sceneMock.collapse.mockResolvedValue(true)
     sceneMock.returnAllCardsToStack.mockResolvedValue(true)
@@ -222,6 +231,71 @@ describe('TarotTablePage reveal flow', () => {
       expect.stringContaining('/assets/tarot/reveal-button-v2.webp'),
     )
     expect(revealArtwork).toHaveAttribute('aria-hidden', 'true')
+    expect(sceneMock.preloadAssetUrls).toEqual(expect.arrayContaining([
+      expect.stringContaining('/assets/tarot/collapse-fan-button-v1.webp'),
+      expect.stringContaining('/assets/tarot/return-all-button-v1.webp'),
+      expect.stringContaining('/assets/tarot/reveal-button-v2.webp'),
+    ]))
+  })
+
+  it('keeps the entire table covered while textures load and reveals it only at 100%', () => {
+    sceneMock.snapshot = {
+      ...makeSnapshot([]),
+      ready: false,
+      loadingProgress: 22,
+      loadedAssets: 20,
+      totalAssets: 89,
+      canRepair: false,
+      canCollapse: false,
+    }
+
+    const { container } = renderPage()
+    const stage = container.querySelector('.tarot-table-stage')
+    const sceneHost = container.querySelector('.tarot-scene-host')
+
+    expect(stage).toHaveClass('is-loading')
+    expect(stage).toHaveAttribute('aria-busy', 'true')
+    expect(sceneHost).toHaveAttribute('aria-hidden', 'true')
+    expect(container.querySelector('.tarot-table-tools')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: '牌桌加载进度' })).toHaveAttribute(
+      'aria-valuenow',
+      '22',
+    )
+    expect(screen.getByText('正在生成牌桌')).toBeInTheDocument()
+
+    act(() => {
+      sceneMock.snapshot = {
+        ...sceneMock.snapshot!,
+        loadingProgress: 68,
+        loadedAssets: 61,
+      }
+      sceneMock.listener?.(sceneMock.snapshot)
+    })
+
+    expect(stage).toHaveClass('is-loading')
+    expect(screen.getByRole('progressbar', { name: '牌桌加载进度' })).toHaveAttribute(
+      'aria-valuenow',
+      '68',
+    )
+    expect(container.querySelector('.tarot-table-tools')).not.toBeInTheDocument()
+
+    act(() => {
+      sceneMock.snapshot = {
+        ...sceneMock.snapshot!,
+        ready: true,
+        loadingProgress: 100,
+        loadedAssets: 89,
+        canRepair: true,
+        canCollapse: true,
+      }
+      sceneMock.listener?.(sceneMock.snapshot)
+    })
+
+    expect(stage).toHaveClass('is-ready')
+    expect(stage).toHaveAttribute('aria-busy', 'false')
+    expect(sceneHost).not.toHaveAttribute('aria-hidden')
+    expect(screen.queryByRole('progressbar', { name: '牌桌加载进度' })).not.toBeInTheDocument()
+    expect(container.querySelector('.tarot-table-tools')).toBeInTheDocument()
   })
 
   it('returns from the tarot table to the water hash route', async () => {

@@ -32,6 +32,24 @@ function cssRuleAfter(selector: string, marker: string): string {
 }
 
 describe('Tarot table DOM control projection CSS contract', () => {
+  it('uses a black void around the table and disables native selection gestures', () => {
+    const page = cssRule('.tarot-page')
+    const workspace = cssRule('.tarot-workspace')
+    const stage = cssRule('.tarot-table-stage')
+    const interactionRule = cssRule('.tarot-table-stage *')
+    const canvas = cssRule('.tarot-scene-host canvas')
+
+    expect(page).toContain('--tarot-bg: #000')
+    expect(page).toContain('background: var(--tarot-bg)')
+    expect(workspace).toContain('background: #000')
+    expect(stage).toContain('background: #000')
+    expect(interactionRule).toContain('-webkit-user-select: none')
+    expect(interactionRule).toContain('user-select: none')
+    expect(interactionRule).toContain('-webkit-touch-callout: none')
+    expect(tableCss).toMatch(/\.tarot-scene-host \{\s*touch-action: none;/)
+    expect(canvas).toContain('touch-action: none')
+  })
+
   it('anchors the desktop actions to projected tabletop bounds instead of stage corners', () => {
     const surfaceActions = cssRule('.tarot-table-surface-actions')
     const action = cssRule('.tarot-table-action')
@@ -68,6 +86,23 @@ describe('Tarot table DOM control projection CSS contract', () => {
     expect(reveal).not.toMatch(/(?:^|\n)\s*top:\s*0(?:\.|\s|;)/)
     expect(dockWhileRevealIsAvailable).toContain('visibility: hidden')
     expect(dockWhileRevealIsAvailable).toContain('pointer-events: none')
+  })
+
+  it('uses an opaque full-stage loading curtain while the WebGL table stays measurable', () => {
+    const loading = cssRule('.tarot-loading')
+    const progress = cssRule('.tarot-loading__progress')
+    const hiddenMarker = '.tarot-table-stage.is-loading .tarot-table-fallback,'
+    const hiddenStart = tableCss.indexOf(hiddenMarker)
+    const hiddenRule = tableCss.slice(hiddenStart, tableCss.indexOf('}', hiddenStart))
+
+    expect(loading).toContain('z-index: 10')
+    expect(loading).toMatch(/(?:^|\n)\s*inset:\s*0\s*;/)
+    expect(loading).toContain('background: #000')
+    expect(progress).toContain('width: 100%')
+    expect(hiddenStart).toBeGreaterThanOrEqual(0)
+    expect(hiddenRule).toContain('.tarot-table-stage.is-loading .tarot-scene-host')
+    expect(hiddenRule).toContain('visibility: hidden')
+    expect(hiddenRule).not.toContain('display: none')
   })
 
   it('gives revealed card faces more of the desktop dialog viewport', () => {

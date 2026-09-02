@@ -21,6 +21,7 @@ import {
   addWater,
   getPendingScratchCoupon,
   getWaterCouponScratchedAt,
+  getWaterPublicSettings,
   getWaterUserMode,
   getWaterUserState,
   listWaterUserCoupons,
@@ -38,7 +39,6 @@ const DRINK_ANIMATION_FRAME_COUNT = 8
 const DRINK_ANIMATION_FRAME_DURATION_MS = 180
 const DRINK_ANIMATION_DURATION_MS = DRINK_ANIMATION_FRAME_COUNT * DRINK_ANIMATION_FRAME_DURATION_MS
 const TAROT_PROMO_IMAGE_SRC = `${import.meta.env.BASE_URL}assets/water/snoopy-tarot-banner-v1.webp`
-const TAROT_PROMO_PRELOAD_TIMEOUT_MS = 10_000
 
 type TarotPromoImageStatus = 'loading' | 'ready' | 'failed'
 
@@ -79,6 +79,7 @@ export function WaterUserPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const requestSequence = useRef(0)
+  const promoSettingsRequestSequence = useRef(0)
   const mutationCount = useRef(0)
   const mounted = useRef(true)
   const noticeTimer = useRef<number | null>(null)
@@ -105,7 +106,7 @@ export function WaterUserPage() {
       if (!mounted.current || sequence !== requestSequence.current) return
       setWaterState(nextState)
       setCoupons(nextCoupons)
-      setTarotPromoEnabled(nextState.tarotPromoEnabled)
+      setTarotPromoEnabled((current) => current ?? nextState.tarotPromoEnabled)
 
       const pending = getPendingScratchCoupon()
       if (pending && getWaterCouponScratchedAt(pending.code)) setPendingScratchCoupon(null)
@@ -120,6 +121,18 @@ export function WaterUserPage() {
     }
   }, [])
 
+  const refreshTarotPromoSetting = useCallback(async () => {
+    const sequence = ++promoSettingsRequestSequence.current
+    try {
+      const settings = await getWaterPublicSettings()
+      if (!mounted.current || sequence !== promoSettingsRequestSequence.current) return
+      setTarotPromoEnabled(settings.tarotPromoEnabled)
+    } catch {
+      // The full state response remains a fallback. A transient settings
+      // failure must not hide or disable the rest of the water page.
+    }
+  }, [])
+
   useEffect(() => {
     if (tarotPromoImageReady) {
       setTarotPromoImageStatus('ready')
@@ -129,13 +142,11 @@ export function WaterUserPage() {
     let active = true
     let settled = false
     let readyStarted = false
-    let timeoutId: number | null = null
     const image = new Image()
 
     const settleImage = (status: Exclude<TarotPromoImageStatus, 'loading'>) => {
       if (settled) return
       settled = true
-      if (timeoutId !== null) window.clearTimeout(timeoutId)
       image.onload = null
       image.onerror = null
       if (status === 'ready') tarotPromoImageReady = true
@@ -154,10 +165,6 @@ export function WaterUserPage() {
     setTarotPromoImageStatus('loading')
     image.onload = settleReady
     image.onerror = () => settleImage('failed')
-    timeoutId = window.setTimeout(
-      () => settleImage('failed'),
-      TAROT_PROMO_PRELOAD_TIMEOUT_MS,
-    )
     image.src = TAROT_PROMO_IMAGE_SRC
 
     if (image.complete) {
@@ -167,7 +174,6 @@ export function WaterUserPage() {
 
     return () => {
       active = false
-      if (timeoutId !== null) window.clearTimeout(timeoutId)
       image.onload = null
       image.onerror = null
     }
@@ -191,16 +197,20 @@ export function WaterUserPage() {
       const image = new Image()
       image.src = source
     }
+    void refreshTarotPromoSetting()
     void refreshAll()
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') void refreshAll(false)
+      if (document.visibilityState !== 'visible') return
+      void refreshTarotPromoSetting()
+      void refreshAll(false)
     }
     window.addEventListener('focus', refreshWhenVisible)
     document.addEventListener('visibilitychange', refreshWhenVisible)
     return () => {
       mounted.current = false
       requestSequence.current += 1
+      promoSettingsRequestSequence.current += 1
       document.title = previousTitle
       waterFavicon.remove()
       window.removeEventListener('focus', refreshWhenVisible)
@@ -208,7 +218,7 @@ export function WaterUserPage() {
       if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
       if (drinkAnimationTimer.current !== null) window.clearTimeout(drinkAnimationTimer.current)
     }
-  }, [refreshAll])
+  }, [refreshAll, refreshTarotPromoSetting])
 
   const capacity = waterState.bottleCapacityMl || BOTTLE_CAPACITY_ML
   const dailyBottleLimit = waterState.dailyBottleLimit || 2

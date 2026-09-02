@@ -54,6 +54,7 @@ const PAW_PLACE_DURATION_MS = 450
 const CARD_HOLD_DURATION_MS = 400
 const CARD_HOLD_INDICATOR_DELAY_MS = 140
 const CARD_HOLD_MOVE_THRESHOLD_PX = 11
+const STARTUP_SHARED_ASSET_COUNT = 8
 
 const COLLISION = {
   wall: 0x0001,
@@ -102,6 +103,9 @@ export interface TarotPlacedCard {
 
 export interface TarotSceneSnapshot {
   ready: boolean
+  loadingProgress: number
+  loadedAssets: number
+  totalAssets: number
   error: string | null
   mode: TarotSceneMode
   spreadId: string
@@ -144,6 +148,7 @@ export interface TarotSceneOptions {
   spreads?: readonly TarotSpread[]
   initialSpreadId?: string
   assets?: TarotAssetOverrides
+  preloadAssetUrls?: readonly string[]
   random?: () => number
   maxPixelRatio?: number
   reducedMotion?: boolean
@@ -394,6 +399,7 @@ export class TarotScene {
   private readonly options: TarotSceneOptions
   private readonly random: () => number
   private readonly assets: TarotAssetManifest
+  private readonly preloadAssetUrls: readonly string[]
   private readonly spreads: readonly TarotSpread[]
   private readonly maxPixelRatio: number
   private readonly reducedMotion: boolean
@@ -410,6 +416,8 @@ export class TarotScene {
   private mounted = false
   private destroyed = false
   private ready = false
+  private loadedAssets = 0
+  private totalAssets = 0
   private error: string | null = null
   private mode: TarotSceneMode = 'stacked'
   private currentSpread: TarotSpread
@@ -453,6 +461,7 @@ export class TarotScene {
   private fanPanX = 0
   private fanPan: FanPanRuntime | null = null
   private fanPinch: FanPinchRuntime | null = null
+  private suppressPawUntilTouchesEnd = false
   private pendingCardHold: PendingCardHoldRuntime | null = null
   private readonly activePointers = new Map<number, PointerSample>()
 
@@ -473,12 +482,14 @@ export class TarotScene {
   private readonly handlePointerLeaveBound = () => this.handlePointerLeave()
   private readonly handleWheelBound = (event: WheelEvent) => this.handleWheel(event)
   private readonly handleWindowBlurBound = () => this.handleWindowBlur()
+  private readonly preventBrowserInteractionBound = (event: Event) => event.preventDefault()
 
   constructor(container: HTMLElement, options: TarotSceneOptions = {}) {
     this.container = container
     this.options = options
     this.random = options.random ?? Math.random
     this.assets = resolveTarotAssets(options.assets)
+    this.preloadAssetUrls = [...new Set(options.preloadAssetUrls ?? [])]
     this.spreads = options.spreads?.length ? options.spreads : TAROT_SPREADS
     this.currentSpread =
       this.spreads.find((spread) => spread.id === options.initialSpreadId) ??
@@ -505,12 +516,34 @@ export class TarotScene {
       this.initializeEffects()
       this.bindEvents()
       this.resize()
-      this.ready = true
+      this.totalAssets =
+        STARTUP_SHARED_ASSET_COUNT + this.cards.length + this.preloadAssetUrls.length
+      this.loadedAssets = 0
       this.lastFrameAt = performance.now()
       this.animationFrame = requestAnimationFrame((time) => this.frame(time))
       this.emitSnapshot()
-      this.options.onEvent?.({ type: 'ready', snapshot: this.getSnapshot() })
       void this.loadGeneratedTextures()
+        .then(() => {
+          if (this.destroyed) return
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera)
+          }
+          this.loadedAssets = this.totalAssets
+          this.ready = true
+          this.emitSnapshot()
+          this.options.onEvent?.({ type: 'ready', snapshot: this.getSnapshot() })
+        })
+        .catch((error) => {
+          if (this.destroyed) return
+          this.error = errorMessage(error)
+          this.ready = false
+          this.emitSnapshot()
+          this.options.onEvent?.({
+            type: 'error',
+            error: this.error,
+            snapshot: this.getSnapshot(),
+          })
+        })
     } catch (error) {
       this.error = errorMessage(error)
       this.ready = false
@@ -604,6 +637,7 @@ export class TarotScene {
     this.activePointers.clear()
     this.fanPan = null
     this.fanPinch = null
+    this.suppressPawUntilTouchesEnd = false
     this.pendingCardHold = null
     this.magicRing = null
     this.resolvedSlotTexture = null
@@ -648,6 +682,14 @@ export class TarotScene {
 
     return {
       ready: this.ready,
+      loadingProgress:
+        this.totalAssets > 0
+          ? Math.round((this.loadedAssets / this.totalAssets) * 100)
+          : this.ready
+            ? 100
+            : 0,
+      loadedAssets: this.loadedAssets,
+      totalAssets: this.totalAssets,
       error: this.error,
       mode: this.mode,
       spreadId: this.currentSpread.id,
@@ -868,7 +910,7 @@ export class TarotScene {
 
   private initializeThree(): void {
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x071414)
+    scene.background = new THREE.Color(0x000000)
     this.scene = scene
 
     const renderer = new THREE.WebGLRenderer({
@@ -893,6 +935,8 @@ export class TarotScene {
       userSelect: 'none',
       cursor: 'none',
     })
+    canvas.style.setProperty('-webkit-user-select', 'none')
+    canvas.style.setProperty('-webkit-touch-callout', 'none')
     this.container.appendChild(canvas)
     this.renderer = renderer
 
@@ -1274,6 +1318,12 @@ export class TarotScene {
     canvas.addEventListener('pointerenter', this.handlePointerEnterBound)
     canvas.addEventListener('pointerleave', this.handlePointerLeaveBound)
     canvas.addEventListener('wheel', this.handleWheelBound, { passive: false })
+    canvas.addEventListener('selectstart', this.preventBrowserInteractionBound)
+    canvas.addEventListener('contextmenu', this.preventBrowserInteractionBound)
+    canvas.addEventListener('dragstart', this.preventBrowserInteractionBound)
+    canvas.addEventListener('touchstart', this.preventBrowserInteractionBound, {
+      passive: false,
+    })
     window.addEventListener('resize', this.handleResizeBound)
     window.addEventListener('blur', this.handleWindowBlurBound)
     document.addEventListener('visibilitychange', this.handleVisibilityBound)
@@ -1293,13 +1343,17 @@ export class TarotScene {
     canvas?.removeEventListener('pointerenter', this.handlePointerEnterBound)
     canvas?.removeEventListener('pointerleave', this.handlePointerLeaveBound)
     canvas?.removeEventListener('wheel', this.handleWheelBound)
+    canvas?.removeEventListener('selectstart', this.preventBrowserInteractionBound)
+    canvas?.removeEventListener('contextmenu', this.preventBrowserInteractionBound)
+    canvas?.removeEventListener('dragstart', this.preventBrowserInteractionBound)
+    canvas?.removeEventListener('touchstart', this.preventBrowserInteractionBound)
     window.removeEventListener('resize', this.handleResizeBound)
     window.removeEventListener('blur', this.handleWindowBlurBound)
     document.removeEventListener('visibilitychange', this.handleVisibilityBound)
   }
 
   private handlePointerEnter(event: PointerEvent): void {
-    this.pointerVisible = true
+    this.pointerVisible = !this.suppressPawUntilTouchesEnd
     this.updatePointer(event)
   }
 
@@ -1457,9 +1511,7 @@ export class TarotScene {
     if (this.pendingCardHold?.pointerId === event.pointerId) this.cancelPendingCardHold()
     this.activePointers.delete(event.pointerId)
     this.releasePointer(event.pointerId)
-    if (event.pointerType === 'touch' && this.activePointers.size === 0) {
-      this.pointerVisible = false
-    }
+    this.restorePawAfterTouchGesture(event.pointerType)
   }
 
   private handlePointerCancel(event: PointerEvent): void {
@@ -1469,7 +1521,7 @@ export class TarotScene {
     if (this.pendingCardHold?.pointerId === event.pointerId) this.cancelPendingCardHold()
     this.activePointers.delete(event.pointerId)
     this.releasePointer(event.pointerId)
-    if (this.activePointers.size === 0) this.pointerVisible = false
+    this.restorePawAfterTouchGesture(event.pointerType)
   }
 
   private handleLostPointerCapture(event: PointerEvent): void {
@@ -1478,6 +1530,17 @@ export class TarotScene {
     if (this.fanPinch?.pointerIds.includes(event.pointerId)) this.fanPinch = null
     if (this.pendingCardHold?.pointerId === event.pointerId) this.cancelPendingCardHold()
     this.activePointers.delete(event.pointerId)
+    this.restorePawAfterTouchGesture(event.pointerType)
+  }
+
+  private restorePawAfterTouchGesture(pointerType: string): void {
+    if (pointerType !== 'touch') return
+    const hasActiveTouches = [...this.activePointers.values()].some(
+      (pointer) => pointer.pointerType === 'touch',
+    )
+    if (hasActiveTouches) return
+    this.suppressPawUntilTouchesEnd = false
+    this.pointerVisible = false
   }
 
   private handleWindowBlur(): void {
@@ -1485,6 +1548,7 @@ export class TarotScene {
     this.endDrag(false)
     this.fanPan = null
     this.fanPinch = null
+    this.suppressPawUntilTouchesEnd = false
     this.cancelPendingCardHold()
     this.activePointers.clear()
   }
@@ -1667,6 +1731,9 @@ export class TarotScene {
     this.fanPan = null
     this.capturePointer(pointerIds[0])
     this.capturePointer(pointerIds[1])
+    this.suppressPawUntilTouchesEnd = true
+    this.pointerVisible = false
+    this.pointerVelocityX = 0
     this.fanPinch = {
       pointerIds,
       initialDistance: distance,
@@ -1737,7 +1804,7 @@ export class TarotScene {
       this.pointerVelocityX = ((event.clientX - this.lastPointerClientX) / elapsed) * 1000
       this.lastPointerClientX = event.clientX
       this.lastPointerAt = now
-      this.pointerVisible = true
+      if (!this.suppressPawUntilTouchesEnd) this.pointerVisible = true
     }
   }
 
@@ -2214,6 +2281,13 @@ export class TarotScene {
     ) {
       this.pawPlacement = null
     }
+    if (this.suppressPawUntilTouchesEnd) {
+      this.pawOpenMaterial.opacity = 0
+      this.pawGrabMaterial.opacity = 0
+      this.pawPlaceMaterial.opacity = 0
+      this.paw.visible = false
+      return
+    }
     const placement = this.pawPlacement
     const targetMaterial = placement
       ? this.pawPlaceMaterial
@@ -2382,6 +2456,7 @@ export class TarotScene {
       this.endDrag(false)
       this.fanPan = null
       this.fanPinch = null
+      this.suppressPawUntilTouchesEnd = false
       this.cancelPendingCardHold()
       this.activePointers.clear()
     }
@@ -2510,19 +2585,37 @@ export class TarotScene {
     return texture
   }
 
+  private markStartupAssetSettled(): void {
+    if (this.destroyed) return
+    this.loadedAssets = Math.min(this.totalAssets, this.loadedAssets + 1)
+    this.emitSnapshot()
+  }
+
   private async loadGeneratedTextures(): Promise<void> {
-    if (!this.shared) return
+    if (!this.shared) throw new Error('Shared tarot resources are unavailable.')
     const loader = new THREE.TextureLoader()
-    const replacements = await Promise.all([
-      loadTextureInto(loader, this.assets.table),
-      loadTextureInto(loader, this.assets.cardBack),
-      loadTextureInto(loader, this.assets.slotFrame),
-      loadTextureInto(loader, this.assets.magicParticle),
-      loadTextureInto(loader, this.assets.magicRing),
-      loadTextureInto(loader, this.assets.pawOpen),
-      loadTextureInto(loader, this.assets.pawGrab),
-      loadTextureInto(loader, this.assets.pawPlace),
+    const loadTrackedTexture = (url: string) =>
+      loadTextureInto(loader, url).finally(() => this.markStartupAssetSettled())
+    const replacementsPromise = Promise.all([
+      loadTrackedTexture(this.assets.table),
+      loadTrackedTexture(this.assets.cardBack),
+      loadTrackedTexture(this.assets.slotFrame),
+      loadTrackedTexture(this.assets.magicParticle),
+      loadTrackedTexture(this.assets.magicRing),
+      loadTrackedTexture(this.assets.pawOpen),
+      loadTrackedTexture(this.assets.pawGrab),
+      loadTrackedTexture(this.assets.pawPlace),
     ])
+    const remainingAssetsPromise = Promise.all([
+      ...this.cards.map((card) =>
+        this.ensureFrontTexture(card).finally(() => this.markStartupAssetSettled()),
+      ),
+      ...this.preloadAssetUrls.map(async (url) => {
+        const texture = await loadTrackedTexture(url)
+        texture?.dispose()
+      }),
+    ])
+    const [replacements] = await Promise.all([replacementsPromise, remainingAssetsPromise])
     if (this.destroyed) {
       for (const texture of replacements) texture?.dispose()
       return

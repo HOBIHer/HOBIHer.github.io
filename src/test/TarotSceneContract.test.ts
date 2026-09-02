@@ -35,6 +35,32 @@ function publicMethodSource(name: string): string {
 }
 
 describe('TarotScene interaction policy source contract', () => {
+  it('keeps ready behind the complete startup texture barrier and reports progress', () => {
+    const mountMethod = publicMethodSource('mount')
+    const loadMethod = markedMethodSource(
+      'private async loadGeneratedTextures(',
+      'loadGeneratedTextures',
+    )
+    const snapshotMethod = publicMethodSource('getSnapshot')
+    const loadStart = mountMethod.indexOf('void this.loadGeneratedTextures()')
+    const readyStart = mountMethod.indexOf('this.ready = true')
+
+    expect(loadStart).toBeGreaterThanOrEqual(0)
+    expect(readyStart).toBeGreaterThan(loadStart)
+    expect(mountMethod.slice(0, loadStart)).not.toContain('this.ready = true')
+    expect(mountMethod).toContain('STARTUP_SHARED_ASSET_COUNT + this.cards.length')
+    expect(mountMethod).toContain('this.preloadAssetUrls.length')
+    expect(mountMethod).toMatch(/this\.renderer\.render\(this\.scene, this\.camera\)[\s\S]*this\.ready = true/)
+
+    expect(loadMethod).toContain('this.cards.map((card) =>')
+    expect(loadMethod).toContain('this.ensureFrontTexture(card).finally')
+    expect(loadMethod).toContain('this.preloadAssetUrls.map')
+    expect(loadMethod).toContain('this.markStartupAssetSettled()')
+    expect(snapshotMethod).toContain('loadingProgress:')
+    expect(snapshotMethod).toContain('loadedAssets: this.loadedAssets')
+    expect(snapshotMethod).toContain('totalAssets: this.totalAssets')
+  })
+
   it('uses a short long-press threshold of about 400ms before starting a drag', () => {
     const duration = Number(
       sceneSource.match(/const CARD_HOLD_DURATION_MS = (\d+)/)?.[1],
@@ -109,6 +135,54 @@ describe('TarotScene interaction policy source contract', () => {
     expect(offsets.length).toBeGreaterThan(0)
     for (const offset of offsets) expect(Math.abs(offset)).toBeLessThanOrEqual(0.12)
     expect(pointerFallback).toBeLessThanOrEqual(0)
+  })
+
+  it('keeps the paw hidden from pinch start until every touch has ended', () => {
+    const pinchMethod = privateMethodSource('startFanPinch')
+    const pawMethod = privateMethodSource('updatePaw')
+    const pointerMethod = privateMethodSource('updatePointer')
+    const restoreMethod = privateMethodSource('restorePawAfterTouchGesture')
+    const pointerUpMethod = privateMethodSource('handlePointerUp')
+    const pointerCancelMethod = privateMethodSource('handlePointerCancel')
+    const lostCaptureMethod = privateMethodSource('handleLostPointerCapture')
+
+    expect(pinchMethod).toContain('this.suppressPawUntilTouchesEnd = true')
+    expect(pinchMethod).toContain('this.pointerVisible = false')
+    expect(pinchMethod).toContain('this.pointerVelocityX = 0')
+    expect(pawMethod).toContain('if (this.suppressPawUntilTouchesEnd)')
+    expect(pawMethod).toContain('this.paw.visible = false')
+    expect(pointerMethod).toContain(
+      'if (!this.suppressPawUntilTouchesEnd) this.pointerVisible = true',
+    )
+    expect(restoreMethod).toContain("if (pointerType !== 'touch') return")
+    expect(restoreMethod).toContain("pointer.pointerType === 'touch'")
+    expect(restoreMethod).toMatch(/if \(hasActiveTouches\) return[\s\S]*this\.suppressPawUntilTouchesEnd = false/)
+    expect(pointerUpMethod).toContain('this.restorePawAfterTouchGesture(event.pointerType)')
+    expect(pointerCancelMethod).toContain('this.restorePawAfterTouchGesture(event.pointerType)')
+    expect(lostCaptureMethod).toContain('this.restorePawAfterTouchGesture(event.pointerType)')
+  })
+
+  it('blocks native selection and long-press menus on the WebGL table', () => {
+    const initializeMethod = privateMethodSource('initializeThree')
+    const bindMethod = privateMethodSource('bindEvents')
+    const unbindMethod = privateMethodSource('unbindEvents')
+
+    expect(initializeMethod).toContain("canvas.style.setProperty('-webkit-user-select', 'none')")
+    expect(initializeMethod).toContain("canvas.style.setProperty('-webkit-touch-callout', 'none')")
+    for (const eventName of ['selectstart', 'contextmenu', 'dragstart']) {
+      expect(bindMethod).toContain(`canvas.addEventListener('${eventName}'`)
+      expect(unbindMethod).toContain(`canvas?.removeEventListener('${eventName}'`)
+    }
+    expect(bindMethod).toMatch(
+      /canvas\.addEventListener\('touchstart',[\s\S]*?passive: false/,
+    )
+    expect(unbindMethod).toContain("canvas?.removeEventListener('touchstart'")
+  })
+
+  it('renders the space beyond the tabletop as pure black', () => {
+    const initializeMethod = privateMethodSource('initializeThree')
+
+    expect(initializeMethod).toContain('scene.background = new THREE.Color(0x000000)')
   })
 
   it('preserves zoom and pan when a card is selected', () => {

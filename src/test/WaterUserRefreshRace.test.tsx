@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   addWater: vi.fn(),
+  getSettings: vi.fn(),
   getState: vi.fn(),
   listCoupons: vi.fn(),
 }))
@@ -12,6 +13,7 @@ vi.mock('../lib/waterUserApi', () => ({
   addWater: api.addWater,
   getPendingScratchCoupon: vi.fn(() => null),
   getWaterCouponScratchedAt: vi.fn(() => ''),
+  getWaterPublicSettings: api.getSettings,
   getWaterUserMode: vi.fn(() => 'mock'),
   getWaterUserState: api.getState,
   listWaterUserCoupons: api.listCoupons,
@@ -28,6 +30,7 @@ describe('WaterUserPage refresh sequencing', () => {
   beforeEach(() => {
     vi.useRealTimers()
     vi.clearAllMocks()
+    api.getSettings.mockResolvedValue({ tarotPromoEnabled: true, updatedAt: null })
   })
 
   afterEach(() => {
@@ -177,6 +180,7 @@ describe('WaterUserPage refresh sequencing', () => {
 
   it('does not wait for the tarot promo image when the shared setting is false', async () => {
     installControlledImage()
+    api.getSettings.mockResolvedValue({ tarotPromoEnabled: false, updatedAt: null })
     api.getState.mockResolvedValue({ ...readyState(), tarotPromoEnabled: false })
     api.listCoupons.mockResolvedValue([])
 
@@ -195,10 +199,19 @@ describe('WaterUserPage refresh sequencing', () => {
     expect(promoPreload().complete).toBe(false)
   })
 
-  it('shows the water screen immediately, swaps the placeholder for the promo, and reuses readiness on return', async () => {
+  it('keeps a slow first-load announcement alive, independently resolves its setting, and reuses readiness on return', async () => {
+    vi.useFakeTimers()
     installControlledImage()
-    api.getState.mockResolvedValue(readyState())
-    api.listCoupons.mockResolvedValue([])
+    let resolveInitialState!: (value: ReturnType<typeof readyState>) => void
+    let resolveInitialCoupons!: (value: unknown[]) => void
+    const initialState = new Promise<ReturnType<typeof readyState>>((resolve) => {
+      resolveInitialState = resolve
+    })
+    const initialCoupons = new Promise<unknown[]>((resolve) => {
+      resolveInitialCoupons = resolve
+    })
+    api.getState.mockReturnValue(initialState)
+    api.listCoupons.mockReturnValue(initialCoupons)
 
     render(
       <MemoryRouter initialEntries={['/water']}>
@@ -217,23 +230,40 @@ describe('WaterUserPage refresh sequencing', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: '今日喝水记录' })).toBeInTheDocument()
-    expect(await screen.findByText('公告加载中…')).toBeInTheDocument()
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByRole('heading', { name: '今日喝水记录' })).toBeInTheDocument()
+    expect(screen.getByText('公告加载中…')).toBeInTheDocument()
     expect(promoRegion().getByRole('status')).toHaveTextContent('公告加载中…')
-    expect(screen.getByRole('button', { name: '喝一口，从瓶中取水 20 毫升' })).toBeEnabled()
+    expect(api.getSettings).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: '喝一口，从瓶中取水 20 毫升' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: PROMO_LINK_NAME })).not.toBeInTheDocument()
 
-    act(() => promoPreload().resolve())
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_001) })
+    expect(promoRegion().getByRole('status')).toHaveTextContent('公告加载中…')
+    expect(screen.queryByRole('link', { name: PROMO_LINK_NAME })).not.toBeInTheDocument()
 
-    const promoLink = await screen.findByRole('link', { name: PROMO_LINK_NAME })
+    await act(async () => {
+      promoPreload().resolve()
+      await Promise.resolve()
+    })
+
+    const promoLink = screen.getByRole('link', { name: PROMO_LINK_NAME })
     expect(promoRegion().queryByRole('status')).not.toBeInTheDocument()
     expect(promoLink).toBeInTheDocument()
 
+    await act(async () => {
+      resolveInitialState(readyState())
+      resolveInitialCoupons([])
+      await Promise.all([initialState, initialCoupons])
+    })
+    expect(screen.getByRole('button', { name: '喝一口，从瓶中取水 20 毫升' })).toBeEnabled()
+
     fireEvent.click(promoLink)
-    expect(await screen.findByRole('heading', { name: '塔罗测试路由' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '塔罗测试路由' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('link', { name: '返回喝水页' }))
 
-    expect(await screen.findByRole('heading', { name: '今日喝水记录' })).toBeInTheDocument()
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByRole('heading', { name: '今日喝水记录' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: PROMO_LINK_NAME })).toBeInTheDocument()
     expect(promoRegion().queryByRole('status')).not.toBeInTheDocument()
     expect(promoPreloads()).toHaveLength(1)
