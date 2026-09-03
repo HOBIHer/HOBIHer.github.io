@@ -128,6 +128,9 @@ describe('TarotTablePage reveal flow', () => {
   afterEach(() => {
     vi.useRealTimers()
     window.location.hash = ''
+    document.head
+      .querySelectorAll('[data-test-favicon], [data-tarot-favicon]')
+      .forEach((element) => element.remove())
   })
 
   beforeEach(() => {
@@ -175,12 +178,30 @@ describe('TarotTablePage reveal flow', () => {
     })
   })
 
-  it('uses the divination-house browser title only while mounted', () => {
+  it('uses the divination-house browser title and generated favicon only while mounted', () => {
+    const defaultFavicon = document.createElement('link')
+    defaultFavicon.rel = 'icon'
+    defaultFavicon.href = '/default-favicon.png'
+    defaultFavicon.setAttribute('data-test-favicon', 'true')
+    document.head.appendChild(defaultFavicon)
+
     const { unmount } = renderPage()
+    const tarotFavicon = document.head.querySelector('link[data-tarot-favicon="true"]')
 
     expect(document.title).toBe('Snoopy占卜屋')
+    expect(tarotFavicon).toHaveAttribute(
+      'href',
+      expect.stringContaining('/assets/tarot/snoopy-tarot-tab-icon-v1.png'),
+    )
+    expect(tarotFavicon).toHaveAttribute('type', 'image/png')
+    expect(tarotFavicon).toHaveAttribute('sizes', '256x256')
+    expect(defaultFavicon).toBeInTheDocument()
+
     unmount()
+
     expect(document.title).toBe('HOBIHer Hub')
+    expect(document.head.querySelector('link[data-tarot-favicon="true"]')).toBeNull()
+    expect(defaultFavicon).toBeInTheDocument()
   })
 
   it('keeps the table chrome visual-only and removes the old control sidebar', () => {

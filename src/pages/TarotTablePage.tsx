@@ -66,9 +66,17 @@ export function TarotTablePage() {
 
   useEffect(() => {
     const previousTitle = document.title
+    const tarotFavicon = document.createElement('link')
+    tarotFavicon.rel = 'icon'
+    tarotFavicon.type = 'image/png'
+    tarotFavicon.href = tarotAssetUrl('snoopy-tarot-tab-icon-v1.png')
+    tarotFavicon.setAttribute('sizes', '256x256')
+    tarotFavicon.setAttribute('data-tarot-favicon', 'true')
+    document.head.appendChild(tarotFavicon)
     document.title = TAROT_PAGE_TITLE
     return () => {
       document.title = previousTitle
+      tarotFavicon.remove()
     }
   }, [])
 
